@@ -1,0 +1,4 @@
+node_modules/
+dsa-app/dist/
+dsa-app/.env
+.DS_Store
