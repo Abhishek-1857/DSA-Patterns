@@ -1,5 +1,7 @@
 # DSA Patterns — Interactive Learning Site
 
+**Live site → [dsa-patterns-ten.vercel.app](https://dsa-patterns-ten.vercel.app)**
+
 A fully interactive DSA study guide covering all 17 core coding interview patterns. Every pattern includes visual walkthroughs, taught questions with brute force + optimized solutions, and practice questions with hint reveals and countdown code answers.
 
 Built with React + Vite. No backend. No accounts. Just open and learn.
