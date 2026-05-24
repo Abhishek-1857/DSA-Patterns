@@ -22,16 +22,26 @@ import MonotonicStackContent from './components/MonotonicStackContent'
 import CompletionSection from './components/CompletionSection'
 import { SECTIONS } from './data/sections'
 
-const initChecked = () =>
-  SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: false }), {})
+const initChecked = () => {
+  try {
+    const saved = localStorage.getItem('dsa-checked')
+    if (saved) return JSON.parse(saved)
+  } catch {}
+  return SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: false }), {})
+}
 
 export default function App() {
   const [checked, setChecked] = useState(initChecked)
   const [activeId, setActiveId] = useState(SECTIONS[0].id)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const mainRef = useRef(null)
 
   const toggleChecked = (id) =>
     setChecked(prev => ({ ...prev, [id]: !prev[id] }))
+
+  useEffect(() => {
+    localStorage.setItem('dsa-checked', JSON.stringify(checked))
+  }, [checked])
 
   useEffect(() => {
     const observers = []
@@ -50,10 +60,26 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar checked={checked} onToggle={toggleChecked} activeId={activeId} />
+      <Sidebar
+        checked={checked}
+        onToggle={toggleChecked}
+        activeId={activeId}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
 
       <main className="main-content" ref={mainRef}>
         <div className="hero">
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(o => !o)}
+            aria-label="Toggle menu"
+          >
+            <span /><span /><span />
+          </button>
           <h1 className="hero-title">
             Master DSA —{' '}
             <span>One Pattern at a Time</span>

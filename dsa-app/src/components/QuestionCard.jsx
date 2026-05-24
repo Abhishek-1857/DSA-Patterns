@@ -3,6 +3,7 @@ import CodeBlock from './CodeBlock'
 import BigOBadge from './BigOBadge'
 import HintButton from './HintButton'
 import AnswerButton from './AnswerButton'
+import { getLcUrl } from '../data/lcLinks'
 
 const TABS = ['Problem', 'Brute Force', 'Optimized']
 
@@ -22,6 +23,7 @@ export default function QuestionCard({
   lang = 'js',
 }) {
   const [tab, setTab] = useState(0)
+  const lcUrl = getLcUrl(title)
 
   const diffColor = {
     Easy: 'var(--green)',
@@ -31,7 +33,20 @@ export default function QuestionCard({
 
   return (
     <div className="question-card">
-      <div className="question-card-title">{title}</div>
+      <div className="question-card-title">
+        {title}
+        {lcUrl && (
+          <a
+            href={lcUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lc-link"
+            onClick={e => e.stopPropagation()}
+          >
+            Solve on LC →
+          </a>
+        )}
+      </div>
       <div className="qcard-meta">
         <span style={{ fontSize: 11, color: diffColor, fontWeight: 600 }}>{difficulty}</span>
         {tab === 1 && <BigOBadge complexity={bruteComplexity} label="time" />}
