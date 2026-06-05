@@ -17,10 +17,10 @@ export default function QuestionCard({
   hint = 'Think step by step.',
   answer = 'The optimal solution explanation goes here.',
   answerCode,
-  answerLang = 'python',
+  answerLang = 'rust',
   bruteCode = '// Brute force code here',
   optCode = '// Optimized code here',
-  lang = 'js',
+  lang = 'rust',
 }) {
   const [tab, setTab] = useState(0)
   const lcUrl = getLcUrl(title)
