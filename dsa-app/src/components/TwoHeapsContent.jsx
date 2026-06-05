@@ -51,8 +51,10 @@ MIN-HEAP: every parent is <= its children
 push/pop always take O(log n) — heap fixes itself
 peek at top is always O(1)
 
-Python: heapq is a MIN-HEAP by default
-        For MAX-HEAP: store negatives (-9, -7, -8...)
+Rust: BinaryHeap<i32> is a MAX-HEAP by default
+      For MIN-HEAP: wrap values with Reverse(x)
+      use std::collections::BinaryHeap;
+      use std::cmp::Reverse;
 `
 
 const TWO_HEAPS_VISUAL = `
@@ -84,327 +86,531 @@ RULE: small.top <= large.top  (partition point)
 `
 
 // ── Q1: Median of a Number Stream ─────────────────────────────────────────
-const q1Brute = `# Brute: keep a sorted list, insert in O(n), read middle in O(1)
-import bisect
+const q1Brute = `// Brute: keep a sorted vec, insert in O(n), read middle in O(1)
+struct MedianFinderBrute {
+    data: Vec<i32>,
+}
 
-class MedianFinderBrute:
-    def __init__(self):
-        self.data = []
+impl MedianFinderBrute {
+    fn new() -> Self {
+        MedianFinderBrute { data: Vec::new() }
+    }
 
-    def add_num(self, num):
-        bisect.insort(self.data, num)   # O(n) insert to keep sorted
+    fn add_num(&mut self, num: i32) {
+        // binary search for insertion point, then insert — O(n) due to shift
+        let pos = self.data.partition_point(|&x| x <= num);
+        self.data.insert(pos, num);  // O(n) insert to keep sorted
+    }
 
-    def find_median(self):
-        n = len(self.data)
-        if n % 2 == 1:
-            return self.data[n // 2]    # middle element
-        return (self.data[n//2 - 1] + self.data[n//2]) / 2`
+    fn find_median(&self) -> f64 {
+        let n = self.data.len();
+        if n % 2 == 1 {
+            self.data[n / 2] as f64   // middle element
+        } else {
+            (self.data[n / 2 - 1] + self.data[n / 2]) as f64 / 2.0
+        }
+    }
+}`
 
-const q1Opt = `import heapq
+const q1Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-class MedianFinder:
-    def __init__(self):
-        # small: max-heap stores lower half (negate values for max-heap in Python)
-        self.small = []
-        # large: min-heap stores upper half
-        self.large = []
+struct MedianFinder {
+    // lower: max-heap stores lower half (BinaryHeap is max-heap by default)
+    lower: BinaryHeap<i32>,
+    // upper: min-heap stores upper half (Reverse wrapper flips ordering)
+    upper: BinaryHeap<Reverse<i32>>,
+}
 
-    def add_num(self, num):
-        # step 1: push to small (max-heap, so negate)
-        heapq.heappush(self.small, -num)
-        # step 2: ensure everything in small <= everything in large
-        if self.large and (-self.small[0]) > self.large[0]:
-            # top of small is bigger than top of large → move it over
-            heapq.heappush(self.large, -heapq.heappop(self.small))
-        # step 3: rebalance sizes (small can be at most 1 bigger)
-        if len(self.small) > len(self.large) + 1:
-            heapq.heappush(self.large, -heapq.heappop(self.small))
-        elif len(self.large) > len(self.small):
-            heapq.heappush(self.small, -heapq.heappop(self.large))
+impl MedianFinder {
+    fn new() -> Self {
+        MedianFinder {
+            lower: BinaryHeap::new(),
+            upper: BinaryHeap::new(),
+        }
+    }
 
-    def find_median(self):
-        if len(self.small) > len(self.large):
-            return -self.small[0]        # odd count: top of small is median
-        return (-self.small[0] + self.large[0]) / 2  # even: average both tops`
+    fn add_num(&mut self, num: i32) {
+        // step 1: push to lower (max-heap)
+        self.lower.push(num);
+        // step 2: ensure everything in lower <= everything in upper
+        if let Some(&top_lower) = self.lower.peek() {
+            if let Some(&Reverse(top_upper)) = self.upper.peek() {
+                if top_lower > top_upper {
+                    // top of lower is bigger than top of upper → move it over
+                    let val = self.lower.pop().unwrap();
+                    self.upper.push(Reverse(val));
+                }
+            } else {
+                // upper is empty: move top of lower to upper to bootstrap partition
+                let val = self.lower.pop().unwrap();
+                self.upper.push(Reverse(val));
+            }
+        }
+        // step 3: rebalance sizes (lower can be at most 1 bigger)
+        if self.lower.len() > self.upper.len() + 1 {
+            let val = self.lower.pop().unwrap();
+            self.upper.push(Reverse(val));
+        } else if self.upper.len() > self.lower.len() {
+            let Reverse(val) = self.upper.pop().unwrap();
+            self.lower.push(val);
+        }
+    }
+
+    fn find_median(&self) -> f64 {
+        if self.lower.len() > self.upper.len() {
+            *self.lower.peek().unwrap() as f64   // odd count: top of lower is median
+        } else {
+            let low = *self.lower.peek().unwrap() as f64;
+            let high = self.upper.peek().unwrap().0 as f64;
+            (low + high) / 2.0   // even: average both tops
+        }
+    }
+}`
 
 // ── Q2: Sliding Window Median ─────────────────────────────────────────────
-const q2Brute = `# Brute: sort the window each time — O(n * k log k)
-def median_sliding_window_brute(nums, k):
-    result = []
-    for i in range(len(nums) - k + 1):
-        window = sorted(nums[i:i+k])         # sort each window
-        mid = k // 2
-        if k % 2 == 1:
-            result.append(float(window[mid]))
-        else:
-            result.append((window[mid-1] + window[mid]) / 2)
-    return result`
+const q2Brute = `// Brute: sort the window each time — O(n * k log k)
+fn median_sliding_window_brute(nums: &[i32], k: usize) -> Vec<f64> {
+    let mut result = Vec::new();
+    for i in 0..=(nums.len() - k) {
+        let mut window = nums[i..i + k].to_vec();  // copy the window
+        window.sort_unstable();                     // sort each window O(k log k)
+        let mid = k / 2;
+        let median = if k % 2 == 1 {
+            window[mid] as f64
+        } else {
+            (window[mid - 1] + window[mid]) as f64 / 2.0
+        };
+        result.push(median);
+    }
+    result
+}`
 
-const q2Opt = `import heapq
+const q2Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def median_sliding_window(nums, k):
-    small = []   # max-heap (lower half, negated)
-    large = []   # min-heap (upper half)
-    result = []
+fn median_sliding_window(nums: &[i32], k: usize) -> Vec<f64> {
+    let mut lower: BinaryHeap<i32> = BinaryHeap::new();   // max-heap (lower half)
+    let mut upper: BinaryHeap<Reverse<i32>> = BinaryHeap::new(); // min-heap (upper half)
+    let mut result = Vec::new();
 
-    def add(num):
-        # same insertion logic as streaming median
-        heapq.heappush(small, -num)
-        if large and -small[0] > large[0]:
-            heapq.heappush(large, -heapq.heappop(small))
-        if len(small) > len(large) + 1:
-            heapq.heappush(large, -heapq.heappop(small))
-        elif len(large) > len(small):
-            heapq.heappush(small, -heapq.heappop(large))
+    let add = |num: i32, lower: &mut BinaryHeap<i32>, upper: &mut BinaryHeap<Reverse<i32>>| {
+        lower.push(num);
+        // fix ordering: lower.top must be <= upper.top
+        if let (Some(&lo), Some(&Reverse(hi))) = (lower.peek(), upper.peek()) {
+            if lo > hi {
+                let val = lower.pop().unwrap();
+                upper.push(Reverse(val));
+            }
+        } else if lower.len() > upper.len() + 1 {
+            // bootstrap upper when empty
+        }
+        // rebalance sizes
+        if lower.len() > upper.len() + 1 {
+            let val = lower.pop().unwrap();
+            upper.push(Reverse(val));
+        } else if upper.len() > lower.len() {
+            let Reverse(val) = upper.pop().unwrap();
+            lower.push(val);
+        }
+    };
 
-    def remove(num):
-        # lazy deletion: mark the number as "to be removed"
-        # heapq doesn't support arbitrary remove, so we skip stale tops later
-        if num <= -small[0]:
-            small[small.index(-num)] = small[0]  # push to front then pop
-            heapq.heapreplace(small, small[-1])
-            small.pop()
-            heapq.heapify(small)                 # O(k) rebuild — acceptable for sliding
-        else:
-            large[large.index(num)] = large[0]
-            heapq.heapreplace(large, large[-1])
-            large.pop()
-            heapq.heapify(large)
+    // lazy removal: rebuild heap after removing element (O(k) — acceptable for window)
+    let remove = |num: i32, lower: &mut BinaryHeap<i32>, upper: &mut BinaryHeap<Reverse<i32>>| {
+        let lower_top = lower.peek().copied().unwrap_or(i32::MIN);
+        if num <= lower_top {
+            // remove from lower half: drain, filter, rebuild
+            let mut v: Vec<i32> = lower.drain().filter(|&x| x != num).collect();
+            // put one copy back if we removed too many (only remove one occurrence)
+            *lower = v.into_iter().collect();
+        } else {
+            let mut v: Vec<i32> = upper.drain().map(|Reverse(x)| x).filter(|&x| x != num).collect();
+            *upper = v.into_iter().map(Reverse).collect();
+        }
+        // rebalance after removal
+        if lower.len() > upper.len() + 1 {
+            let val = lower.pop().unwrap();
+            upper.push(Reverse(val));
+        } else if upper.len() > lower.len() {
+            let Reverse(val) = upper.pop().unwrap();
+            lower.push(val);
+        }
+    };
 
-    def get_median():
-        if len(small) > len(large):
-            return float(-small[0])
-        return (-small[0] + large[0]) / 2
-
-    for i, num in enumerate(nums):
-        add(num)
-        if i >= k - 1:                   # window is full
-            result.append(get_median())
-            remove(nums[i - k + 1])      # slide: remove outgoing element
-    return result`
+    for i in 0..nums.len() {
+        add(nums[i], &mut lower, &mut upper);
+        if i >= k - 1 {                     // window is full
+            let median = if lower.len() > upper.len() {
+                *lower.peek().unwrap() as f64
+            } else {
+                let lo = *lower.peek().unwrap() as f64;
+                let hi = upper.peek().unwrap().0 as f64;
+                (lo + hi) / 2.0
+            };
+            result.push(median);
+            remove(nums[i + 1 - k], &mut lower, &mut upper); // slide: remove outgoing element
+        }
+    }
+    result
+}`
 
 // ── Q3: Maximize Capital (IPO) ────────────────────────────────────────────
-const q3Brute = `# Brute: each round, scan all affordable projects, pick max profit
-def find_maximized_capital_brute(k, w, profits, capital):
-    projects = list(zip(capital, profits))   # pair each project
-    for _ in range(k):
-        best = -1
-        for cap, prof in projects:
-            if cap <= w:                     # affordable?
-                best = max(best, prof)
-        if best == -1:
-            break                            # no affordable project
-        # find and remove that project
-        for i, (cap, prof) in enumerate(projects):
-            if cap <= w and prof == best:
-                projects.pop(i)
-                break
-        w += best                            # add profit to capital
-    return w`
+const q3Brute = `// Brute: each round, scan all affordable projects, pick max profit
+fn find_maximized_capital_brute(k: i32, mut w: i32, profits: &[i32], capital: &[i32]) -> i32 {
+    let mut projects: Vec<(i32, i32)> = capital.iter().copied()
+        .zip(profits.iter().copied())
+        .collect();   // pair (capital_required, profit)
 
-const q3Opt = `import heapq
+    for _ in 0..k {
+        let best = projects.iter()
+            .filter(|&&(cap, _)| cap <= w)     // affordable?
+            .map(|&(_, prof)| prof)
+            .max();
+        match best {
+            None => break,                     // no affordable project
+            Some(b) => {
+                // find and remove that project (first match)
+                if let Some(pos) = projects.iter().position(|&(cap, prof)| cap <= w && prof == b) {
+                    projects.remove(pos);
+                }
+                w += b;                        // add profit to capital
+            }
+        }
+    }
+    w
+}`
 
-def find_maximized_capital(k, w, profits, capital):
-    # min-heap of (capital_required, profit) — sorted by capital needed
-    available = sorted(zip(capital, profits))  # cheapest to unlock first
-    affordable = []                 # max-heap of profits we can currently afford
-    idx = 0                         # pointer into sorted available list
+const q3Opt = `use std::collections::BinaryHeap;
 
-    for _ in range(k):
-        # unlock all projects we can now afford (w >= their capital requirement)
-        while idx < len(available) and available[idx][0] <= w:
-            cap, prof = available[idx]
-            heapq.heappush(affordable, -prof)  # negate for max-heap
-            idx += 1
-        if not affordable:
-            break                   # no affordable projects left
-        # pick the most profitable affordable project
-        w += -heapq.heappop(affordable)   # un-negate when popping
-    return w`
+fn find_maximized_capital(k: i32, mut w: i32, profits: &[i32], capital: &[i32]) -> i32 {
+    // sort projects by capital required — cheapest to unlock first
+    let mut available: Vec<(i32, i32)> = capital.iter().copied()
+        .zip(profits.iter().copied())
+        .collect();
+    available.sort_unstable();   // sorted by capital (ascending)
+
+    let mut affordable: BinaryHeap<i32> = BinaryHeap::new();  // max-heap of profits
+    let mut idx = 0;             // pointer into sorted available list
+
+    for _ in 0..k {
+        // unlock all projects we can now afford (w >= their capital requirement)
+        while idx < available.len() && available[idx].0 <= w {
+            affordable.push(available[idx].1);  // push profit onto max-heap
+            idx += 1;
+        }
+        match affordable.pop() {
+            None => break,          // no affordable projects left
+            Some(best_profit) => {
+                // pick the most profitable affordable project
+                w += best_profit;
+            }
+        }
+    }
+    w
+}`
 
 // ── Q4: Next Interval ─────────────────────────────────────────────────────
-const q4Brute = `# Brute: for each interval, scan all others to find closest start >= its end
-def find_next_interval_brute(intervals):
-    result = []
-    for i, (start_i, end_i) in enumerate(intervals):
-        best_idx = -1
-        best_start = float('inf')
-        for j, (start_j, _) in enumerate(intervals):
-            if start_j >= end_i and start_j < best_start:
-                best_start = start_j
-                best_idx = j
-        result.append(best_idx)
-    return result`
+const q4Brute = `// Brute: for each interval, scan all others to find closest start >= its end
+fn find_next_interval_brute(intervals: &[[i32; 2]]) -> Vec<i32> {
+    let mut result = Vec::new();
+    for i in 0..intervals.len() {
+        let end_i = intervals[i][1];
+        let mut best_idx: i32 = -1;
+        let mut best_start = i32::MAX;
+        for j in 0..intervals.len() {
+            let start_j = intervals[j][0];
+            if start_j >= end_i && start_j < best_start {
+                best_start = start_j;
+                best_idx = j as i32;
+            }
+        }
+        result.push(best_idx);
+    }
+    result
+}`
 
-const q4Opt = `import heapq
+const q4Opt = `use std::collections::BinaryHeap;
 
-def find_next_interval(intervals):
-    n = len(intervals)
-    result = [-1] * n
-    # max-heap of (start, index) — we want the LARGEST start <= end
-    max_start = [(-intervals[i][0], i) for i in range(n)]
-    heapq.heapify(max_start)
-    # max-heap of (end, index) — process intervals by largest end first
-    max_end = [(-intervals[i][1], i) for i in range(n)]
-    heapq.heapify(max_end)
+fn find_next_interval(intervals: &[[i32; 2]]) -> Vec<i32> {
+    let n = intervals.len();
+    let mut result = vec![-1i32; n];
 
-    for _ in range(n):
-        end_val, end_idx = heapq.heappop(max_end)
-        end_val = -end_val              # un-negate
-        # pop starts that are too small (start < end)
-        # we need smallest start >= end — but max_start gives largest first
-        # instead: collect all starts >= end, take the minimum of those
-        temp = []
-        while max_start and -max_start[0][0] >= end_val:
-            temp.append(heapq.heappop(max_start))
-        if temp:
-            # temp is sorted descending by start; min start is last element
-            temp.sort()                 # sort ascending by negated start
-            result[end_idx] = temp[0][1]  # smallest start >= end
-        for item in temp:
-            heapq.heappush(max_start, item)  # push back unused starts
-    return result`
+    // max-heap of (start, original_index) — process starts from largest to smallest
+    let mut max_start: BinaryHeap<(i32, usize)> = (0..n)
+        .map(|i| (intervals[i][0], i))
+        .collect();
+
+    // max-heap of (end, original_index) — process ends from largest to smallest
+    let mut max_end: BinaryHeap<(i32, usize)> = (0..n)
+        .map(|i| (intervals[i][1], i))
+        .collect();
+
+    for _ in 0..n {
+        let (end_val, end_idx) = max_end.pop().unwrap();
+
+        // collect all starts >= end_val into a temp buffer
+        let mut temp = Vec::new();
+        while let Some(&(start_val, _)) = max_start.peek() {
+            if start_val >= end_val {
+                temp.push(max_start.pop().unwrap());
+            } else {
+                break;
+            }
+        }
+
+        if !temp.is_empty() {
+            // temp is sorted descending by start; minimum start is the last element
+            let &(_, best_idx) = temp.iter().min_by_key(|&&(s, _)| s).unwrap();
+            result[end_idx] = best_idx as i32;
+        }
+
+        // push back all unused starts
+        for item in temp {
+            max_start.push(item);
+        }
+    }
+    result
+}`
 
 // ── Q5: Meeting Rooms III ─────────────────────────────────────────────────
-const q5Brute = `# Brute: simulate each meeting, assign to first available room
-def most_booked_brute(n, meetings):
-    meetings.sort()
-    rooms = [0] * n          # rooms[i] = time room i becomes free
-    count = [0] * n          # how many meetings room i has held
-    for start, end in meetings:
-        # find first available room
-        available = [(rooms[i], i) for i in range(n) if rooms[i] <= start]
-        if available:
-            _, room = min(available)   # earliest-free available room
-        else:
-            # all busy: wait for earliest-ending meeting
-            end_time, room = min((rooms[i], i) for i in range(n))
-            end = end_time + (end - start)   # delay the meeting
-        rooms[room] = end
-        count[room] += 1
-    return count.index(max(count))`
+const q5Brute = `// Brute: simulate each meeting, assign to first available room
+fn most_booked_brute(n: usize, mut meetings: Vec<[i64; 2]>) -> usize {
+    meetings.sort_unstable();
+    let mut rooms = vec![0i64; n];   // rooms[i] = time room i becomes free
+    let mut count = vec![0usize; n]; // how many meetings room i has held
 
-const q5Opt = `import heapq
+    for meeting in &meetings {
+        let (start, end) = (meeting[0], meeting[1]);
+        // find first available room (free before or at start)
+        let available: Vec<(i64, usize)> = (0..n)
+            .filter(|&i| rooms[i] <= start)
+            .map(|i| (rooms[i], i))
+            .collect();
 
-def most_booked(n, meetings):
-    meetings.sort()                  # process meetings in start-time order
-    free = list(range(n))            # min-heap of available room indices
-    heapq.heapify(free)
-    busy = []                        # min-heap of (end_time, room_index)
-    count = [0] * n                  # meeting count per room
+        let room;
+        let new_end;
+        if !available.is_empty() {
+            // earliest-free available room (min by free time, then by index)
+            room = available.iter().min_by_key(|&&(t, i)| (t, i)).unwrap().1;
+            new_end = end;
+        } else {
+            // all busy: wait for earliest-ending meeting
+            let (earliest_end, r) = (0..n).map(|i| (rooms[i], i)).min().unwrap();
+            room = r;
+            new_end = earliest_end + (end - start);  // delay the meeting
+        }
+        rooms[room] = new_end;
+        count[room] += 1;
+    }
+    count.iter().enumerate().max_by_key(|&(_, &c)| c).unwrap().0
+}`
 
-    for start, end in meetings:
-        # free up rooms whose meeting has ended by 'start'
-        while busy and busy[0][0] <= start:
-            end_time, room = heapq.heappop(busy)
-            heapq.heappush(free, room)   # room is available again
-        if free:
-            room = heapq.heappop(free)   # lowest-indexed available room
-            heapq.heappush(busy, (end, room))
-        else:
-            # all rooms busy: take the one that finishes soonest
-            earliest_end, room = heapq.heappop(busy)
-            new_end = earliest_end + (end - start)   # meeting is delayed
-            heapq.heappush(busy, (new_end, room))
-        count[room] += 1
-    return count.index(max(count))`
+const q5Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
+
+fn most_booked(n: usize, mut meetings: Vec<[i64; 2]>) -> usize {
+    meetings.sort_unstable();           // process meetings in start-time order
+
+    // min-heap of available room indices (Reverse makes BinaryHeap a min-heap)
+    let mut free: BinaryHeap<Reverse<usize>> = (0..n).map(Reverse).collect();
+    // min-heap of (end_time, room_index)
+    let mut busy: BinaryHeap<Reverse<(i64, usize)>> = BinaryHeap::new();
+    let mut count = vec![0usize; n];   // meeting count per room
+
+    for meeting in &meetings {
+        let (start, end) = (meeting[0], meeting[1]);
+
+        // free up rooms whose meeting has ended by 'start'
+        while let Some(&Reverse((end_time, _))) = busy.peek() {
+            if end_time <= start {
+                let Reverse((_, room)) = busy.pop().unwrap();
+                free.push(Reverse(room));  // room is available again
+            } else {
+                break;
+            }
+        }
+
+        let (room, new_end) = if let Some(Reverse(r)) = free.pop() {
+            (r, end)                       // lowest-indexed available room
+        } else {
+            // all rooms busy: take the one that finishes soonest
+            let Reverse((earliest_end, r)) = busy.pop().unwrap();
+            (r, earliest_end + (end - start))  // meeting is delayed
+        };
+
+        busy.push(Reverse((new_end, room)));
+        count[room] += 1;
+    }
+
+    count.iter().enumerate().max_by_key(|&(_, &c)| c).unwrap().0
+}`
 
 // ── PRACTICE answers ──────────────────────────────────────────────────────
-const pq1Code = `import heapq
+const pq1Code = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-# Kth Largest Element in a Stream
-class KthLargest:
-    def __init__(self, k, nums):
-        self.k = k
-        self.heap = []              # min-heap of size k (top = kth largest)
-        for num in nums:
-            self.add(num)
+// Kth Largest Element in a Stream
+struct KthLargest {
+    k: usize,
+    heap: BinaryHeap<Reverse<i32>>,  // min-heap of size k (top = kth largest)
+}
 
-    def add(self, val):
-        heapq.heappush(self.heap, val)
-        if len(self.heap) > self.k:
-            heapq.heappop(self.heap)   # keep only k largest
-        return self.heap[0]            # smallest of the k largest = kth largest`
+impl KthLargest {
+    fn new(k: i32, nums: Vec<i32>) -> Self {
+        let mut kl = KthLargest {
+            k: k as usize,
+            heap: BinaryHeap::new(),
+        };
+        for num in nums {
+            kl.add(num);
+        }
+        kl
+    }
 
-const pq2Code = `import heapq
+    fn add(&mut self, val: i32) -> i32 {
+        self.heap.push(Reverse(val));
+        if self.heap.len() > self.k {
+            self.heap.pop();           // keep only k largest
+        }
+        self.heap.peek().unwrap().0   // smallest of the k largest = kth largest
+    }
+}`
 
-# Find Median from Data Stream — same as Taught Q1
-class MedianFinder:
-    def __init__(self):
-        self.small = []    # max-heap (lower half, negated)
-        self.large = []    # min-heap (upper half)
+const pq2Code = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-    def addNum(self, num):
-        heapq.heappush(self.small, -num)
-        if self.large and -self.small[0] > self.large[0]:
-            heapq.heappush(self.large, -heapq.heappop(self.small))
-        if len(self.small) > len(self.large) + 1:
-            heapq.heappush(self.large, -heapq.heappop(self.small))
-        elif len(self.large) > len(self.small):
-            heapq.heappush(self.small, -heapq.heappop(self.large))
+// Find Median from Data Stream — same as Taught Q1
+struct MedianFinder {
+    lower: BinaryHeap<i32>,           // max-heap (lower half)
+    upper: BinaryHeap<Reverse<i32>>,  // min-heap (upper half)
+}
 
-    def findMedian(self):
-        if len(self.small) > len(self.large):
-            return float(-self.small[0])
-        return (-self.small[0] + self.large[0]) / 2`
+impl MedianFinder {
+    fn new() -> Self {
+        MedianFinder {
+            lower: BinaryHeap::new(),
+            upper: BinaryHeap::new(),
+        }
+    }
 
-const pq3Code = `import heapq
-from collections import Counter
+    fn add_num(&mut self, num: i32) {
+        self.lower.push(num);
+        // fix ordering: lower.top must be <= upper.top
+        if let (Some(&lo), Some(&Reverse(hi))) = (self.lower.peek(), self.upper.peek()) {
+            if lo > hi {
+                let val = self.lower.pop().unwrap();
+                self.upper.push(Reverse(val));
+            }
+        } else if self.lower.len() > self.upper.len() + 1 {
+            let val = self.lower.pop().unwrap();
+            self.upper.push(Reverse(val));
+        }
+        // rebalance sizes
+        if self.lower.len() > self.upper.len() + 1 {
+            let val = self.lower.pop().unwrap();
+            self.upper.push(Reverse(val));
+        } else if self.upper.len() > self.lower.len() {
+            let Reverse(val) = self.upper.pop().unwrap();
+            self.lower.push(val);
+        }
+    }
 
-# Task Scheduler — greedy: always schedule the most frequent remaining task
-def least_interval(tasks, n):
-    counts = Counter(tasks)
-    max_heap = [-c for c in counts.values()]   # max-heap (negate for Python)
-    heapq.heapify(max_heap)
-    time = 0
-    cooldown = []                              # (available_at_time, count)
-    while max_heap or cooldown:
-        time += 1
-        if max_heap:
-            count = heapq.heappop(max_heap) + 1  # run one of the top task (count -1, +1 because negated)
-            if count < 0:                         # still has remaining instances
-                cooldown.append((time + n, count))
-        # check if any cooled-down task is ready
-        if cooldown and cooldown[0][0] == time:
-            _, count = cooldown.pop(0)
-            heapq.heappush(max_heap, count)
-    return time`
+    fn find_median(&self) -> f64 {
+        if self.lower.len() > self.upper.len() {
+            return *self.lower.peek().unwrap() as f64;
+        }
+        let low = *self.lower.peek().unwrap() as f64;
+        let high = self.upper.peek().unwrap().0 as f64;
+        (low + high) / 2.0
+    }
+}`
 
-const pq4Code = `import heapq
-from collections import Counter
+const pq3Code = `use std::collections::{BinaryHeap, VecDeque};
+use std::collections::HashMap;
 
-# Reorganize String — place most frequent char first, interleave
-def reorganize_string(s):
-    counts = Counter(s)
-    max_heap = [(-cnt, ch) for ch, cnt in counts.items()]
-    heapq.heapify(max_heap)
-    result = []
-    prev_cnt, prev_ch = 0, ''          # track last placed char
+// Task Scheduler — greedy: always schedule the most frequent remaining task
+fn least_interval(tasks: Vec<char>, n: i32) -> i32 {
+    let mut counts: HashMap<char, i32> = HashMap::new();
+    for t in &tasks {
+        *counts.entry(*t).or_insert(0) += 1;
+    }
 
-    while max_heap or prev_cnt < 0:
-        if not max_heap:
-            return ""                  # impossible to reorganize
-        cnt, ch = heapq.heappop(max_heap)
-        result.append(ch)
-        if prev_cnt < 0:               # previous char still has remaining uses
-            heapq.heappush(max_heap, (prev_cnt, prev_ch))
-        prev_cnt = cnt + 1             # decrement count (counts are negative)
-        prev_ch = ch
+    // max-heap of task counts
+    let mut max_heap: BinaryHeap<i32> = counts.values().copied().collect();
+    let mut time = 0;
+    let mut cooldown: VecDeque<(i32, i32)> = VecDeque::new(); // (available_at, count)
 
-    return "".join(result)`
+    while !max_heap.is_empty() || !cooldown.is_empty() {
+        time += 1;
+        if let Some(count) = max_heap.pop() {
+            // run one instance of the most frequent task (count decreases by 1)
+            if count - 1 > 0 {
+                cooldown.push_back((time + n, count - 1)); // still has remaining instances
+            }
+        }
+        // check if any cooled-down task is ready
+        if let Some(&(avail_at, _)) = cooldown.front() {
+            if avail_at == time {
+                let (_, count) = cooldown.pop_front().unwrap();
+                max_heap.push(count);
+            }
+        }
+    }
+    time
+}`
 
-const pq5Code = `import heapq
+const pq4Code = `use std::collections::BinaryHeap;
 
-# K Closest Points to Origin — min-heap by distance squared
-def k_closest(points, k):
-    # store (distance_squared, x, y) in a min-heap
-    heap = [(x*x + y*y, x, y) for x, y in points]
-    heapq.heapify(heap)                # O(n) heapify
-    result = []
-    for _ in range(k):
-        _, x, y = heapq.heappop(heap)  # pop k smallest distances
-        result.append([x, y])
-    return result`
+// Reorganize String — place most frequent char first, interleave
+fn reorganize_string(s: String) -> String {
+    let mut counts = [0i32; 26];
+    for b in s.bytes() {
+        counts[(b - b'a') as usize] += 1;
+    }
+
+    // max-heap of (count, char_as_byte)
+    let mut max_heap: BinaryHeap<(i32, u8)> = counts.iter().enumerate()
+        .filter(|&(_, &c)| c > 0)
+        .map(|(i, &c)| (c, b'a' + i as u8))
+        .collect();
+
+    let mut result = Vec::new();
+    let mut prev: Option<(i32, u8)> = None;  // track last placed char
+
+    while !max_heap.is_empty() || prev.is_some() {
+        if max_heap.is_empty() {
+            return String::new();  // impossible to reorganize
+        }
+        let (cnt, ch) = max_heap.pop().unwrap();
+        result.push(ch);
+        // reinsert the previous char now that a different char was placed
+        if let Some((pc, pch)) = prev {
+            max_heap.push((pc, pch));
+        }
+        // decrement count; hold this char back until next iteration
+        prev = if cnt - 1 > 0 { Some((cnt - 1, ch)) } else { None };
+    }
+
+    String::from_utf8(result).unwrap()
+}`
+
+const pq5Code = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
+
+// K Closest Points to Origin — min-heap by distance squared
+fn k_closest(points: Vec<Vec<i32>>, k: i32) -> Vec<Vec<i32>> {
+    // store (distance_squared, index) in a min-heap — no sqrt needed
+    let mut heap: BinaryHeap<Reverse<(i32, usize)>> = points.iter().enumerate()
+        .map(|(i, p)| Reverse((p[0] * p[0] + p[1] * p[1], i)))
+        .collect();  // O(n) heapify
+
+    let mut result = Vec::new();
+    for _ in 0..k {
+        let Reverse((_, i)) = heap.pop().unwrap();  // pop k smallest distances
+        result.push(points[i].clone());
+    }
+    result
+}`
 
 export default function TwoHeapsContent() {
   return (
@@ -415,8 +621,9 @@ export default function TwoHeapsContent() {
         <Callout type="info">
           Think of a heap like a priority queue at a hospital emergency room. The most
           critical patient (highest priority) always gets seen first, no matter the order
-          they arrived. In Python, <code>heapq</code> is always a min-heap — the smallest
-          value pops first. To get a max-heap, store your values as negatives.
+          they arrived. In Rust, <code>BinaryHeap</code> is always a max-heap — the largest
+          value pops first. To get a min-heap, wrap values with <code>Reverse(x)</code> from{' '}
+          <code>std::cmp::Reverse</code>.
         </Callout>
       </Sub>
 
@@ -440,8 +647,8 @@ export default function TwoHeapsContent() {
       <Sub title="How Two Heaps works — ASCII walkthrough">
         <CodeBlock code={TWO_HEAPS_VISUAL} lang="text" />
         <Callout type="tip">
-          Two invariants to maintain: (1) every number in <code>small</code> is ≤ every
-          number in <code>large</code>. (2) sizes differ by at most 1. Enforce both after
+          Two invariants to maintain: (1) every number in <code>lower</code> is ≤ every
+          number in <code>upper</code>. (2) sizes differ by at most 1. Enforce both after
           every insertion.
         </Callout>
       </Sub>
@@ -457,24 +664,24 @@ export default function TwoHeapsContent() {
 Example: add(1) → 1.0, add(2) → 1.5, add(3) → 2.0`}
           brute={<>
             <BigOBadge time="O(n) add, O(1) median" space="O(n)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
             <Callout type="warn">Sorted insert is O(n) per addition — too slow for large streams.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(log n) add, O(1) median" space="O(n)" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> You don't need everything sorted — you only ever
               need the two middle values. Two heaps give you those in O(1) while maintaining
               the partition in O(log n) per insertion.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Python's heapq is a min-heap. To use it as a
-              max-heap, store negatives: push <code>-num</code>, and negate again when you
-              read <code>-small[0]</code>.
+              <strong>Common mistake:</strong> Rust's <code>BinaryHeap</code> is a max-heap.
+              To use it as a min-heap, wrap values with <code>Reverse(x)</code> and unwrap
+              with <code>.0</code> when reading: <code>upper.peek().unwrap().0</code>.
             </Callout>
           </>}
-          answer="small=max-heap (lower half), large=min-heap (upper half). After each insertion: fix ordering (small.top ≤ large.top), then rebalance sizes. Median = small.top or avg of both tops."
+          answer="lower=max-heap (lower half), upper=min-heap (upper half). After each insertion: fix ordering (lower.top ≤ upper.top), then rebalance sizes. Median = lower.top or avg of both tops."
         />
 
         <QuestionCard
@@ -486,22 +693,22 @@ Example: add(1) → 1.0, add(2) → 1.5, add(3) → 2.0`}
 Example: nums=[1,3,-1,-3,5,3,6,7], k=3 → [1,-1,-1,3,5,6]`}
           brute={<>
             <BigOBadge time="O(n·k log k)" space="O(k)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n·k)" space="O(k)" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Adding is the same as the streaming median.
-              Removing is tricky — heapq has no efficient arbitrary delete, so we
-              use "lazy deletion" or a direct heapify rebuild on the k-sized window.
+              Removing is tricky — <code>BinaryHeap</code> has no efficient arbitrary delete, so we
+              use "lazy deletion" or a direct drain-filter-rebuild on the k-sized window.
             </Callout>
             <Callout type="danger">
               <strong>Common mistake:</strong> Forgetting to rebalance after removal.
               Deletion can throw off the size balance, which corrupts the median calculation.
             </Callout>
           </>}
-          answer="Two-heap streaming median, with an extra remove() operation each time the window slides. Remove by finding the element and rebuilding the heap."
+          answer="Two-heap streaming median, with an extra remove() operation each time the window slides. Remove by draining, filtering, and rebuilding the heap."
         />
 
         <QuestionCard
@@ -513,11 +720,11 @@ Example: nums=[1,3,-1,-3,5,3,6,7], k=3 → [1,-1,-1,3,5,6]`}
 Example: k=2, w=0, profits=[1,2,3], capital=[0,1,1] → 4`}
           brute={<>
             <BigOBadge time="O(k·n)" space="O(1)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n log n)" space="O(n)" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Two separate heaps for two separate concerns:
               a min-heap ordered by capital (to efficiently unlock newly affordable projects)
@@ -541,11 +748,11 @@ Example: k=2, w=0, profits=[1,2,3], capital=[0,1,1] → 4`}
 Example: [[3,4],[2,3],[1,2]] → [−1, 0, 1]`}
           brute={<>
             <BigOBadge time="O(n²)" space="O(1)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n log n)" space="O(n)" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Two max-heaps — one on end times (to process
               intervals from largest end to smallest) and one on start times (to find
@@ -570,11 +777,11 @@ Example: [[3,4],[2,3],[1,2]] → [−1, 0, 1]`}
 Example: n=2, meetings=[[0,10],[1,5],[2,7],[3,4]] → 0`}
           brute={<>
             <BigOBadge time="O(m·n)" space="O(n)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(m log n)" space="O(n)" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Two separate heaps: <code>free</code> (min-heap
               of available room indices — lowest index pops first) and <code>busy</code>
@@ -622,10 +829,10 @@ Example: k=3, initial=[4,5,8,2]. add(3)→4, add(5)→5, add(10)→5, add(9)→8
 Example: addNum(1), addNum(2), findMedian()→1.5, addNum(3), findMedian()→2.0`}
           hints={[
             "This is exactly Taught Q1 — two heaps partitioning the data at the median.",
-            "small = max-heap of lower half (negate values), large = min-heap of upper half.",
+            "lower = max-heap of lower half, upper = min-heap of upper half (use Reverse).",
             "After each add: fix partition ordering, then rebalance sizes.",
           ]}
-          answer="Same as Taught Q1 — small max-heap + large min-heap, maintain ordering and balance invariants."
+          answer="Same as Taught Q1 — lower max-heap + upper min-heap, maintain ordering and balance invariants."
           answerCode={pq2Code}
         />
 
@@ -673,7 +880,7 @@ Example: "aab" → "aba", "aaab" → ""`}
 Example: points=[[1,3],[-2,2]], k=1 → [[-2,2]]`}
           hints={[
             "You don't need the actual distance — distance² preserves ordering and avoids sqrt.",
-            "Min-heap of (x²+y², x, y). Heapify once, then pop k times.",
+            "Min-heap of (x²+y², index). Heapify once via collect(), then pop k times.",
             "Alternatively, use a max-heap of size k and keep only the k smallest seen so far.",
           ]}
           answer="Build a min-heap keyed by x²+y², heapify in O(n), pop k elements."

@@ -53,212 +53,273 @@ KEY INSIGHT: each swap places at least one number correctly
 `
 
 // ─── TAUGHT Q1: Cyclic Sort (basic) ─────────────────────────────────────────
-const cs1Brute = `# Brute force: just use Python's built-in sort
-def cyclic_sort_brute(nums):
-    nums.sort()       # O(n log n) — wastes the "range 1..n" hint
-    return nums`
+const cs1Brute = `// Brute force: just use Rust's built-in sort
+fn cyclic_sort_brute(nums: &mut Vec<i32>) {
+    nums.sort();  // O(n log n) — wastes the "range 1..n" hint
+}`
 
-const cs1Opt = `# Optimised: place every number at index (num - 1) directly
-def cyclic_sort(nums):
-    i = 0                          # start at the left
-    while i < len(nums):
-        # where should nums[i] live?  number 3 → index 2 = num-1
-        correct = nums[i] - 1
-        if nums[i] != nums[correct]: # if it's NOT already home
-            # swap it to its correct slot
-            nums[i], nums[correct] = nums[correct], nums[i]
-            # DON'T advance i — the number that landed here might also need moving
-        else:
-            i += 1                 # this slot is correct, move on
-    return nums`
+const cs1Opt = `// Optimised: place every number at index (num - 1) directly
+fn cyclic_sort(nums: &mut Vec<i32>) {
+    let mut i = 0usize;
+    while i < nums.len() {
+        // where should nums[i] live?  number 3 → index 2 = num-1
+        let j = (nums[i] - 1) as usize;
+        if nums[i] != nums[j] {  // if it's NOT already home
+            // swap it to its correct slot
+            nums.swap(i, j);
+            // DON'T advance i — the number that landed here might also need moving
+        } else {
+            i += 1;  // this slot is correct, move on
+        }
+    }
+}`
 
 // ─── TAUGHT Q2: Find Missing Number ─────────────────────────────────────────
-const cs2Brute = `# Brute force: sort then scan for the gap
-def missing_number_brute(nums):
-    nums.sort()                  # O(n log n)
-    for i in range(len(nums)):
-        if nums[i] != i:         # index i should hold i
-            return i
-    return len(nums)             # gap is at the very end`
+const cs2Brute = `// Brute force: sort then scan for the gap
+fn missing_number_brute(mut nums: Vec<i32>) -> i32 {
+    nums.sort();  // O(n log n)
+    for i in 0..nums.len() {
+        if nums[i] != i as i32 {  // index i should hold i
+            return i as i32;
+        }
+    }
+    nums.len() as i32  // gap is at the very end
+}`
 
-const cs2Opt = `# Optimised: cyclic sort then one scan
-def missing_number(nums):
-    n = len(nums)
-    i = 0
-    while i < n:
-        correct = nums[i]        # number x belongs at index x (range 0..n)
-        # only swap if correct index is in bounds AND not already there
-        if nums[i] < n and nums[i] != nums[correct]:
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1               # this slot is fine, move on
-    # second pass: find the index whose value doesn't match
-    for i in range(n):
-        if nums[i] != i:
-            return i             # i is missing!
-    return n                     # 0..n-1 all present, n is missing`
+const cs2Opt = `// Optimised: cyclic sort then one scan
+fn missing_number(mut nums: Vec<i32>) -> i32 {
+    let n = nums.len();
+    let mut i = 0usize;
+    while i < n {
+        let j = nums[i] as usize;  // number x belongs at index x (range 0..n)
+        // only swap if correct index is in bounds AND not already there
+        if j < n && nums[i] != nums[j] {
+            nums.swap(i, j);
+        } else {
+            i += 1;  // this slot is fine, move on
+        }
+    }
+    // second pass: find the index whose value doesn't match
+    for i in 0..n {
+        if nums[i] != i as i32 {
+            return i as i32;  // i is missing!
+        }
+    }
+    n as i32  // 0..n-1 all present, n is missing
+}`
 
 // ─── TAUGHT Q3: Find All Missing Numbers ────────────────────────────────────
-const cs3Brute = `# Brute force: use a set, then check what's absent
-def find_all_missing_brute(nums):
-    seen = set(nums)             # O(n) space
-    return [i for i in range(1, len(nums)+1) if i not in seen]`
+const cs3Brute = `// Brute force: use a HashSet, then check what's absent
+use std::collections::HashSet;
 
-const cs3Opt = `# Optimised: cyclic sort then scan for mismatches
-def find_all_missing(nums):
-    n = len(nums)
-    i = 0
-    while i < n:
-        # number x should sit at index x-1
-        correct = nums[i] - 1
-        if nums[i] != nums[correct]:     # not home yet → swap
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1                       # already correct, advance
-    missing = []
-    for i in range(n):
-        if nums[i] != i + 1:            # index i should hold i+1
-            missing.append(i + 1)       # so i+1 is a missing number
-    return missing`
+fn find_all_missing_brute(nums: Vec<i32>) -> Vec<i32> {
+    let seen: HashSet<i32> = nums.iter().cloned().collect();  // O(n) space
+    let n = nums.len();
+    (1..=n as i32).filter(|x| !seen.contains(x)).collect()
+}`
+
+const cs3Opt = `// Optimised: cyclic sort then scan for mismatches
+fn find_all_missing(mut nums: Vec<i32>) -> Vec<i32> {
+    let n = nums.len();
+    let mut i = 0usize;
+    while i < n {
+        // number x should sit at index x-1
+        let j = (nums[i] - 1) as usize;
+        if nums[i] != nums[j] {     // not home yet → swap
+            nums.swap(i, j);
+        } else {
+            i += 1;                 // already correct, advance
+        }
+    }
+    let mut missing = Vec::new();
+    for i in 0..n {
+        if nums[i] != (i + 1) as i32 {  // index i should hold i+1
+            missing.push((i + 1) as i32);  // so i+1 is a missing number
+        }
+    }
+    missing
+}`
 
 // ─── TAUGHT Q4: Find Duplicate Number ───────────────────────────────────────
-const cs4Brute = `# Brute force: seen set
-def find_duplicate_brute(nums):
-    seen = set()
-    for n in nums:
-        if n in seen:
-            return n             # second time we see it → duplicate
-        seen.add(n)
-    return -1`
+const cs4Brute = `// Brute force: seen set
+use std::collections::HashSet;
 
-const cs4Opt = `# Optimised: cyclic sort — the duplicate ends up in the wrong slot
-def find_duplicate(nums):
-    i = 0
-    while i < len(nums):
-        # number x belongs at index x-1 (range 1..n)
-        correct = nums[i] - 1
-        if nums[i] != i + 1:            # not already home?
-            if nums[i] != nums[correct]: # and the slot isn't already taken?
-                nums[i], nums[correct] = nums[correct], nums[i]
-            else:
-                # can't place it — the slot already has the same number!
-                return nums[i]           # this IS the duplicate
-        else:
-            i += 1
-    return -1`
+fn find_duplicate_brute(nums: Vec<i32>) -> i32 {
+    let mut seen = HashSet::new();
+    for &n in &nums {
+        if !seen.insert(n) {
+            return n;  // second time we see it → duplicate
+        }
+    }
+    -1
+}`
+
+const cs4Opt = `// Optimised: cyclic sort — the duplicate ends up in the wrong slot
+fn find_duplicate(mut nums: Vec<i32>) -> i32 {
+    let mut i = 0usize;
+    while i < nums.len() {
+        // number x belongs at index x-1 (range 1..n)
+        let j = (nums[i] - 1) as usize;
+        if nums[i] != (i + 1) as i32 {       // not already home?
+            if nums[i] != nums[j] {           // and the slot isn't already taken?
+                nums.swap(i, j);
+            } else {
+                // can't place it — the slot already has the same number!
+                return nums[i];               // this IS the duplicate
+            }
+        } else {
+            i += 1;
+        }
+    }
+    -1
+}`
 
 // ─── TAUGHT Q5: Find All Duplicates ─────────────────────────────────────────
-const cs5Brute = `# Brute force: sort and check adjacent
-def find_all_duplicates_brute(nums):
-    nums.sort()
-    result = []
-    for i in range(1, len(nums)):
-        if nums[i] == nums[i-1]:
-            result.append(nums[i])
-    return result`
+const cs5Brute = `// Brute force: sort and check adjacent
+fn find_all_duplicates_brute(mut nums: Vec<i32>) -> Vec<i32> {
+    nums.sort();
+    let mut result = Vec::new();
+    for i in 1..nums.len() {
+        if nums[i] == nums[i - 1] {
+            result.push(nums[i]);
+        }
+    }
+    result
+}`
 
-const cs5Opt = `# Optimised: cyclic sort then scan for nums[i] != i+1
-def find_all_duplicates(nums):
-    i = 0
-    while i < len(nums):
-        correct = nums[i] - 1          # number x lives at index x-1
-        if nums[i] != nums[correct]:   # swap if the slot is different
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1                     # already correct (or duplicate blocked)
-    duplicates = []
-    for i in range(len(nums)):
-        if nums[i] != i + 1:           # mismatch → nums[i] is a duplicate
-            duplicates.append(nums[i])
-    return duplicates`
+const cs5Opt = `// Optimised: cyclic sort then scan for nums[i] != i+1
+fn find_all_duplicates(mut nums: Vec<i32>) -> Vec<i32> {
+    let mut i = 0usize;
+    while i < nums.len() {
+        let j = (nums[i] - 1) as usize;  // number x lives at index x-1
+        if nums[i] != nums[j] {           // swap if the slot is different
+            nums.swap(i, j);
+        } else {
+            i += 1;                       // already correct (or duplicate blocked)
+        }
+    }
+    let mut duplicates = Vec::new();
+    for i in 0..nums.len() {
+        if nums[i] != (i + 1) as i32 {   // mismatch → nums[i] is a duplicate
+            duplicates.push(nums[i]);
+        }
+    }
+    duplicates
+}`
 
 // ─── PRACTICE answers ────────────────────────────────────────────────────────
-const pq1Code = `# Set Mismatch — one number duplicated, one missing
-def find_error_nums(nums):
-    i = 0
-    while i < len(nums):
-        correct = nums[i] - 1          # number x → index x-1
-        if nums[i] != nums[correct]:   # not home → swap
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1
-    for i in range(len(nums)):
-        if nums[i] != i + 1:
-            # nums[i] is the duplicate (it's here but shouldn't be)
-            # i+1 is the missing number (supposed to be here)
-            return [nums[i], i + 1]`
+const pq1Code = `// Set Mismatch — one number duplicated, one missing
+fn find_error_nums(mut nums: Vec<i32>) -> Vec<i32> {
+    let mut i = 0usize;
+    while i < nums.len() {
+        let j = (nums[i] - 1) as usize;  // number x → index x-1
+        if nums[i] != nums[j] {          // not home → swap
+            nums.swap(i, j);
+        } else {
+            i += 1;
+        }
+    }
+    for i in 0..nums.len() {
+        if nums[i] != (i + 1) as i32 {
+            // nums[i] is the duplicate (it's here but shouldn't be)
+            // i+1 is the missing number (supposed to be here)
+            return vec![nums[i], (i + 1) as i32];
+        }
+    }
+    vec![]
+}`
 
-const pq2Code = `# First Missing Positive — cyclic sort, then find first mismatch
-def first_missing_positive(nums):
-    n = len(nums)
-    i = 0
-    while i < n:
-        correct = nums[i] - 1          # number x belongs at index x-1
-        # only act on numbers in range [1, n]
-        if 1 <= nums[i] <= n and nums[i] != nums[correct]:
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1
-    for i in range(n):
-        if nums[i] != i + 1:
-            return i + 1               # first slot where number is wrong
-    return n + 1                       # 1..n all present, answer is n+1`
+const pq2Code = `// First Missing Positive — cyclic sort, then find first mismatch
+fn first_missing_positive(mut nums: Vec<i32>) -> i32 {
+    let n = nums.len();
+    let mut i = 0usize;
+    while i < n {
+        let j = (nums[i] - 1) as usize;  // number x belongs at index x-1
+        // only act on numbers in range [1, n]
+        if nums[i] >= 1 && nums[i] <= n as i32 && nums[i] != nums[j] {
+            nums.swap(i, j);
+        } else {
+            i += 1;
+        }
+    }
+    for i in 0..n {
+        if nums[i] != (i + 1) as i32 {
+            return (i + 1) as i32;  // first slot where number is wrong
+        }
+    }
+    (n + 1) as i32  // 1..n all present, answer is n+1
+}`
 
-const pq3Code = `# Find the Corrupt Pair — same as Set Mismatch
-def find_corrupt_pair(nums):
-    i = 0
-    while i < len(nums):
-        correct = nums[i] - 1
-        if nums[i] != nums[correct]:
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1
-    for i in range(len(nums)):
-        if nums[i] != i + 1:
-            # duplicate is nums[i], missing is i+1
-            return [nums[i], i + 1]`
+const pq3Code = `// Find the Corrupt Pair — same as Set Mismatch
+fn find_corrupt_pair(mut nums: Vec<i32>) -> Vec<i32> {
+    let mut i = 0usize;
+    while i < nums.len() {
+        let j = (nums[i] - 1) as usize;
+        if nums[i] != nums[j] {
+            nums.swap(i, j);
+        } else {
+            i += 1;
+        }
+    }
+    for i in 0..nums.len() {
+        if nums[i] != (i + 1) as i32 {
+            // duplicate is nums[i], missing is i+1
+            return vec![nums[i], (i + 1) as i32];
+        }
+    }
+    vec![]
+}`
 
-const pq4Code = `# Smallest Missing Positive — same as First Missing Positive
-def smallest_missing_positive(nums):
-    n = len(nums)
-    i = 0
-    while i < n:
-        correct = nums[i] - 1
-        if 1 <= nums[i] <= n and nums[i] != nums[correct]:
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1
-    for i in range(n):
-        if nums[i] != i + 1:
-            return i + 1
-    return n + 1`
+const pq4Code = `// Smallest Missing Positive — same as First Missing Positive
+fn smallest_missing_positive(mut nums: Vec<i32>) -> i32 {
+    let n = nums.len();
+    let mut i = 0usize;
+    while i < n {
+        let j = (nums[i] - 1) as usize;
+        if nums[i] >= 1 && nums[i] <= n as i32 && nums[i] != nums[j] {
+            nums.swap(i, j);
+        } else {
+            i += 1;
+        }
+    }
+    for i in 0..n {
+        if nums[i] != (i + 1) as i32 {
+            return (i + 1) as i32;
+        }
+    }
+    (n + 1) as i32
+}`
 
-const pq5Code = `# K Missing Positive Numbers — cyclic sort then collect gaps
-def find_k_missing_positive(nums, k):
-    n = len(nums)
-    i = 0
-    while i < n:
-        correct = nums[i] - 1
-        # only sort numbers in valid range (1..n)
-        if 1 <= nums[i] <= n and nums[i] != nums[correct]:
-            nums[i], nums[correct] = nums[correct], nums[i]
-        else:
-            i += 1
-    missing = []
-    extra_count = 0                    # how many mismatches we've seen
-    for i in range(n):
-        if nums[i] != i + 1:
-            missing.append(i + 1)      # i+1 is missing
-            extra_count += 1
-            if len(missing) == k:
-                return missing
-    # if we still need more, continue from n+1 upward
-    j = 1
-    while len(missing) < k:
-        candidate = n + j
-        missing.append(candidate)
-        j += 1
-    return missing`
+const pq5Code = `// K Missing Positive Numbers — cyclic sort then collect gaps
+fn find_k_missing_positive(mut nums: Vec<i32>, k: usize) -> Vec<i32> {
+    let n = nums.len();
+    let mut i = 0usize;
+    while i < n {
+        let j = (nums[i] - 1) as usize;
+        // only sort numbers in valid range (1..n)
+        if nums[i] >= 1 && nums[i] <= n as i32 && nums[i] != nums[j] {
+            nums.swap(i, j);
+        } else {
+            i += 1;
+        }
+    }
+    let mut missing = Vec::new();
+    for i in 0..n {
+        if nums[i] != (i + 1) as i32 {
+            missing.push((i + 1) as i32);  // i+1 is missing
+            if missing.len() == k {
+                return missing;
+            }
+        }
+    }
+    // if we still need more, continue from n+1 upward
+    let mut j = 1i32;
+    while missing.len() < k {
+        missing.push(n as i32 + j);
+        j += 1;
+    }
+    missing
+}`
 
 export default function CyclicSortContent() {
   return (
@@ -283,7 +344,7 @@ export default function CyclicSortContent() {
       <Sub title="How it works — ASCII walkthrough">
         <CodeBlock code={CS_VISUAL} lang="text" />
         <Callout type="info">
-          The trick: <code>correct = nums[i] - 1</code> tells you exactly where
+          The trick: <code>let j = (nums[i] - 1) as usize</code> tells you exactly where
           <code>nums[i]</code> belongs. If it's not there, swap. If the slot is already
           occupied by the same value, you've found a duplicate (or the number is out
           of range) — skip.
@@ -300,12 +361,12 @@ export default function CyclicSortContent() {
 Example: [3,1,5,4,2] → [1,2,3,4,5]`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(1)" />
-            <CodeBlock code={cs1Brute} lang="python" />
+            <CodeBlock code={cs1Brute} lang="rust" />
             <Callout type="warn">Using sort() throws away the key insight — numbers are 1..n so each has a known home.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={cs1Opt} lang="python" />
+            <CodeBlock code={cs1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Each swap puts at least one number in its correct
               place. So the total number of swaps can't exceed n — making the whole thing O(n)
@@ -330,18 +391,18 @@ Example: [3,0,1] → 2
 Example: [9,6,4,2,3,5,7,0,1] → 8`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(1)" />
-            <CodeBlock code={cs2Brute} lang="python" />
+            <CodeBlock code={cs2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={cs2Opt} lang="python" />
+            <CodeBlock code={cs2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Range is 0..n so number x belongs at index x.
               But the array has n slots (indices 0..n-1) — number n has nowhere to go,
               so we skip it during sorting and check if the gap is at the end.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Forgetting to guard <code>nums[i] &lt; n</code>
+              <strong>Common mistake:</strong> Forgetting to guard <code>j &lt; n</code>
               before using it as an index — number n would cause an index-out-of-bounds.
             </Callout>
           </>}
@@ -357,17 +418,17 @@ Example: [9,6,4,2,3,5,7,0,1] → 8`}
 Example: [4,3,2,7,8,2,3,1] → [5,6]`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={cs3Brute} lang="python" />
+            <CodeBlock code={cs3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={cs3Opt} lang="python" />
+            <CodeBlock code={cs3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Duplicates "block" their home slot — two numbers
               want the same index. After sorting, every wrong slot reveals a missing number.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Checking <code>nums[i] != i + 1</code> DURING
+              <strong>Common mistake:</strong> Checking <code>nums[i] != (i + 1) as i32</code> DURING
               the sort loop. Do it AFTER — the sort needs to finish first.
             </Callout>
           </>}
@@ -384,19 +445,19 @@ Example: [1,3,4,2,2] → 2
 Example: [3,1,3,4,2] → 3`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={cs4Brute} lang="python" />
+            <CodeBlock code={cs4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={cs4Opt} lang="python" />
+            <CodeBlock code={cs4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> When two numbers want the same slot, the second
               one can't be placed — its "home" is already taken by an identical number.
               That deadlock reveals the duplicate.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Only checking <code>nums[i] != nums[correct]</code>
-              without also checking <code>nums[i] != i+1</code> first — you'd loop forever
+              <strong>Common mistake:</strong> Only checking <code>nums[i] != nums[j]</code>
+              without also checking <code>nums[i] != (i+1) as i32</code> first — you'd loop forever
               when a number is already home.
             </Callout>
           </>}
@@ -412,11 +473,11 @@ Example: [3,1,3,4,2] → 3`}
 Example: [4,3,2,7,8,2,3,1] → [2,3]`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(1)" />
-            <CodeBlock code={cs5Brute} lang="python" />
+            <CodeBlock code={cs5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={cs5Opt} lang="python" />
+            <CodeBlock code={cs5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> After cyclic sort, every slot that doesn't hold
               its "correct" number must hold a duplicate — because the real owner of that slot
@@ -424,7 +485,7 @@ Example: [4,3,2,7,8,2,3,1] → [2,3]`}
               has no home of its own).
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Thinking the answer is <code>i+1</code> (the
+              <strong>Common mistake:</strong> Thinking the answer is <code>(i+1) as i32</code> (the
               missing number). No — in this problem we want the duplicate, which is
               <code>nums[i]</code> (the impostor sitting in the wrong slot).
             </Callout>
@@ -451,6 +512,7 @@ Example: [1,2,2,4] → [2,3]`}
           ]}
           answer="Cyclic sort, scan for the mismatch slot: [nums[i], i+1]."
           answerCode={pq1Code}
+          answerLang="rust"
         />
 
         <QuestionCard
@@ -469,6 +531,7 @@ Example: [3,4,-1,1] → 2`}
           ]}
           answer="Cyclic sort ignoring numbers outside [1,n], then find first i where nums[i] != i+1, return i+1."
           answerCode={pq2Code}
+          answerLang="rust"
         />
 
         <QuestionCard
@@ -485,6 +548,7 @@ Example: [3,1,2,5,2] → [2,4]`}
           ]}
           answer="Cyclic sort, find mismatch slot: return [nums[i], i+1]."
           answerCode={pq3Code}
+          answerLang="rust"
         />
 
         <QuestionCard
@@ -502,6 +566,7 @@ Example: [2,3,4,6,1] → 5`}
           ]}
           answer="Same as First Missing Positive — cyclic sort on [1,n] range, then scan."
           answerCode={pq4Code}
+          answerLang="rust"
         />
 
         <QuestionCard
@@ -520,6 +585,7 @@ Example: [1,2,3,6,7], k=3 → [4,5,8]`}
           ]}
           answer="Cyclic sort, collect mismatches up to k, then extend beyond n if needed."
           answerCode={pq5Code}
+          answerLang="rust"
         />
       </Sub>
 

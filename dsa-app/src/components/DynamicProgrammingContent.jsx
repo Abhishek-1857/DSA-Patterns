@@ -55,7 +55,7 @@ The two ingredients that make DP possible:
             (If there were a shorter A→B route, you'd use that instead.)
 
 TWO STYLES:
-  Top-down (memoization): write recursion, cache results in a dict
+  Top-down (memoization): write recursion, cache results in a Vec<Option<_>>
   Bottom-up (tabulation): fill a table from small to large, no recursion
 `
 
@@ -78,31 +78,35 @@ To compute fib(5)=5: we only ever look one and two steps back.
 Space optimization: only keep last two values → O(1) space.
 `
 
-const q1Brute = `# Naive recursion — O(2^n) time, recomputes everything
-def fib_naive(n):
-    if n <= 1:
-        return n
-    return fib_naive(n - 1) + fib_naive(n - 2)   # same subproblems solved many times`
+const q1Brute = `// Naive recursion — O(2^n) time, recomputes everything
+fn fib_naive(n: u64) -> u64 {
+    if n <= 1 {
+        return n;
+    }
+    fib_naive(n - 1) + fib_naive(n - 2)  // same subproblems solved many times
+}`
 
-const q1Opt = `# Top-down (memoization): cache results so each subproblem is solved once
-def fib_memo(n, memo={}):
-    if n in memo:
-        return memo[n]              # already computed → free lookup
-    if n <= 1:
-        return n                    # base case
-    memo[n] = fib_memo(n-1, memo) + fib_memo(n-2, memo)
-    return memo[n]
+const q1Opt = `// Top-down (memoization): cache results so each subproblem is solved once
+fn fib_memo(n: usize, memo: &mut Vec<Option<i64>>) -> i64 {
+    if n <= 1 { return n as i64; }         // base case
+    if let Some(val) = memo[n] { return val; }  // already computed → free lookup
+    let result = fib_memo(n - 1, memo) + fib_memo(n - 2, memo);
+    memo[n] = Some(result);                // store for future calls
+    result
+}
 
-# Bottom-up (tabulation): fill table left to right, no recursion at all
-def fib_dp(n):
-    if n <= 1:
-        return n
-    prev2, prev1 = 0, 1             # fib(0), fib(1)
-    for i in range(2, n + 1):
-        curr = prev1 + prev2        # fib(i) = fib(i-1) + fib(i-2)
-        prev2 = prev1               # slide the window
-        prev1 = curr
-    return prev1                    # fib(n)`
+// Bottom-up (tabulation): fill table left to right, no recursion at all
+fn fib_tab(n: usize) -> i64 {
+    if n <= 1 { return n as i64; }
+    let mut prev2 = 0i64;  // fib(0)
+    let mut prev1 = 1i64;  // fib(1)
+    for _ in 2..=n {
+        let curr = prev1 + prev2;  // fib(i) = fib(i-1) + fib(i-2)
+        prev2 = prev1;             // slide the window
+        prev1 = curr;
+    }
+    prev1  // fib(n)
+}`
 
 // ── Q2: 0/1 Knapsack ──────────────────────────────────────────────────────
 const KNAPSACK_TABLE = `
@@ -127,36 +131,45 @@ For each cell dp[i][w]:
   - Pick the MAX of these two options
 `
 
-const q2Brute = `# Brute: try every subset of items — O(2^n)
-def knapsack_brute(weights, values, capacity):
-    n = len(weights)
-    best = 0
-    for mask in range(1 << n):          # every binary subset 000...0 to 111...1
-        total_w = total_v = 0
-        for i in range(n):
-            if mask & (1 << i):         # item i is included in this subset
-                total_w += weights[i]
-                total_v += values[i]
-        if total_w <= capacity:
-            best = max(best, total_v)
-    return best`
+const q2Brute = `// Brute: try every subset of items — O(2^n)
+fn knapsack_brute(weights: &[usize], values: &[i32], capacity: usize) -> i32 {
+    let n = weights.len();
+    let mut best = 0;
+    for mask in 0..(1u32 << n) {          // every binary subset 000...0 to 111...1
+        let mut total_w = 0usize;
+        let mut total_v = 0i32;
+        for i in 0..n {
+            if mask & (1 << i) != 0 {     // item i is included in this subset
+                total_w += weights[i];
+                total_v += values[i];
+            }
+        }
+        if total_w <= capacity {
+            best = best.max(total_v);
+        }
+    }
+    best
+}`
 
-const q2Opt = `def knapsack(weights, values, capacity):
-    n = len(weights)
-    # dp[i][w] = max value using first i items with weight capacity w
-    dp = [[0] * (capacity + 1) for _ in range(n + 1)]
+const q2Opt = `fn knapsack(weights: &[usize], values: &[i32], capacity: usize) -> i32 {
+    let n = weights.len();
+    // dp[i][w] = max value using first i items with weight capacity w
+    let mut dp = vec![vec![0i32; capacity + 1]; n + 1];
 
-    for i in range(1, n + 1):          # process each item one by one
-        w_i = weights[i - 1]           # current item's weight (1-indexed)
-        v_i = values[i - 1]            # current item's value
-        for w in range(capacity + 1):  # for each possible weight limit
-            # option 1: skip this item
-            skip = dp[i - 1][w]
-            # option 2: take this item (only if it fits)
-            take = dp[i - 1][w - w_i] + v_i if w >= w_i else 0
-            dp[i][w] = max(skip, take) # pick whichever gives more value
+    for i in 1..=n {                          // process each item one by one
+        let w_i = weights[i - 1];             // current item's weight (1-indexed)
+        let v_i = values[i - 1];              // current item's value
+        for w in 0..=capacity {               // for each possible weight limit
+            // option 1: skip this item
+            let skip = dp[i - 1][w];
+            // option 2: take this item (only if it fits)
+            let take = if w >= w_i { dp[i - 1][w - w_i] + v_i } else { 0 };
+            dp[i][w] = skip.max(take);        // pick whichever gives more value
+        }
+    }
 
-    return dp[n][capacity]             # max value using all n items within capacity`
+    dp[n][capacity]  // max value using all n items within capacity
+}`
 
 // ── Q3: Longest Common Subsequence ────────────────────────────────────────
 const LCS_TABLE = `
@@ -182,31 +195,40 @@ Rule:
                                        (skip one char from either string)
 `
 
-const q3Brute = `# Brute: recursive without memoization — O(2^(m+n))
-def lcs_brute(s1, s2, i=None, j=None):
-    if i is None: i, j = len(s1), len(s2)
-    if i == 0 or j == 0:
-        return 0
-    if s1[i-1] == s2[j-1]:
-        return 1 + lcs_brute(s1, s2, i-1, j-1)   # match: take both
-    return max(lcs_brute(s1, s2, i-1, j),          # skip s1's char
-               lcs_brute(s1, s2, i, j-1))          # skip s2's char`
+const q3Brute = `// Brute: recursive without memoization — O(2^(m+n))
+fn lcs_brute(s1: &[u8], s2: &[u8], i: usize, j: usize) -> usize {
+    if i == 0 || j == 0 {
+        return 0;
+    }
+    if s1[i - 1] == s2[j - 1] {
+        1 + lcs_brute(s1, s2, i - 1, j - 1)   // match: take both
+    } else {
+        lcs_brute(s1, s2, i - 1, j)            // skip s1's char
+            .max(lcs_brute(s1, s2, i, j - 1)) // skip s2's char
+    }
+}`
 
-const q3Opt = `def lcs(s1, s2):
-    m, n = len(s1), len(s2)
-    # dp[i][j] = LCS length for s1[:i] and s2[:j]
-    dp = [[0] * (n + 1) for _ in range(m + 1)]   # (m+1)x(n+1) table, all zeros
+const q3Opt = `fn lcs(s1: &str, s2: &str) -> usize {
+    let s1 = s1.as_bytes();
+    let s2 = s2.as_bytes();
+    let (m, n) = (s1.len(), s2.len());
+    // dp[i][j] = LCS length for s1[..i] and s2[..j]
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];  // (m+1)x(n+1) table, all zeros
 
-    for i in range(1, m + 1):
-        for j in range(1, n + 1):
-            if s1[i-1] == s2[j-1]:              # characters match!
-                dp[i][j] = dp[i-1][j-1] + 1     # extend the LCS by 1
-            else:
-                # no match: take the best we had without one of these chars
-                dp[i][j] = max(dp[i-1][j],       # skip s1[i-1]
-                               dp[i][j-1])        # skip s2[j-1]
+    for i in 1..=m {
+        for j in 1..=n {
+            if s1[i - 1] == s2[j - 1] {           // characters match!
+                dp[i][j] = dp[i - 1][j - 1] + 1;  // extend the LCS by 1
+            } else {
+                // no match: take the best we had without one of these chars
+                dp[i][j] = dp[i - 1][j]            // skip s1[i-1]
+                    .max(dp[i][j - 1]);             // skip s2[j-1]
+            }
+        }
+    }
 
-    return dp[m][n]                              # bottom-right = answer`
+    dp[m][n]  // bottom-right = answer
+}`
 
 // ── Q4: Coin Change ────────────────────────────────────────────────────────
 const COIN_TABLE = `
@@ -237,34 +259,42 @@ For each coin c, and each amount a >= c:
           "use one coin c, then solve the remaining amount a-c"
 `
 
-const q4Brute = `# Brute: try every combination recursively — O(amount^n) approximately
-def coin_change_brute(coins, amount):
-    def dfs(remaining):
-        if remaining == 0:
-            return 0
-        if remaining < 0:
-            return float('inf')
-        best = float('inf')
-        for coin in coins:
-            result = dfs(remaining - coin)
-            if result != float('inf'):
-                best = min(best, result + 1)   # +1 for this coin
-        return best
-    result = dfs(amount)
-    return result if result != float('inf') else -1`
+const q4Brute = `// Brute: try every combination recursively — O(amount^n) approximately
+fn coin_change_brute(coins: &[i32], amount: i32) -> i32 {
+    fn dfs(coins: &[i32], remaining: i32) -> i32 {
+        if remaining == 0 { return 0; }
+        if remaining < 0  { return i32::MAX; }
+        let mut best = i32::MAX;
+        for &coin in coins {
+            let result = dfs(coins, remaining - coin);
+            if result != i32::MAX {
+                best = best.min(result + 1);  // +1 for this coin
+            }
+        }
+        best
+    }
+    let result = dfs(coins, amount);
+    if result == i32::MAX { -1 } else { result }
+}`
 
-const q4Opt = `def coin_change(coins, amount):
-    # dp[a] = minimum coins needed to make amount a
-    dp = [float('inf')] * (amount + 1)
-    dp[0] = 0                           # base case: 0 coins to make amount 0
+const q4Opt = `fn coin_change(coins: &[i32], amount: i32) -> i32 {
+    let amount = amount as usize;
+    // dp[a] = minimum coins needed to make amount a
+    let mut dp = vec![i32::MAX; amount + 1];
+    dp[0] = 0;                              // base case: 0 coins to make amount 0
 
-    for a in range(1, amount + 1):      # build up from amount 1 to target
-        for coin in coins:
-            if coin <= a:               # coin is small enough to use
-                # use this coin once + best way to make up the rest
-                dp[a] = min(dp[a], dp[a - coin] + 1)
+    for a in 1..=amount {                   // build up from amount 1 to target
+        for &coin in coins {
+            let c = coin as usize;
+            if c <= a && dp[a - c] != i32::MAX {  // coin is small enough to use
+                // use this coin once + best way to make up the rest
+                dp[a] = dp[a].min(dp[a - c] + 1);
+            }
+        }
+    }
 
-    return dp[amount] if dp[amount] != float('inf') else -1`
+    if dp[amount] == i32::MAX { -1 } else { dp[amount] }
+}`
 
 // ── Q5: Longest Increasing Subsequence ────────────────────────────────────
 const LIS_TABLE = `
@@ -295,112 +325,135 @@ Final dp: [1, 1, 1, 2, 2, 3, 4, 4]
 Answer = max(dp) = 4  (e.g. [2, 3, 7, 101])
 `
 
-const q5Brute = `# Brute: check every subsequence — O(2^n)
-def lis_brute(nums):
-    n = len(nums)
-    best = 1
-    for mask in range(1, 1 << n):
-        subseq = [nums[i] for i in range(n) if mask & (1 << i)]
-        # check if this subsequence is increasing
-        if all(subseq[i] < subseq[i+1] for i in range(len(subseq)-1)):
-            best = max(best, len(subseq))
-    return best`
+const q5Brute = `// Brute: check every subsequence — O(2^n)
+fn lis_brute(nums: &[i32]) -> usize {
+    let n = nums.len();
+    let mut best = 1;
+    for mask in 1u32..(1 << n) {
+        let subseq: Vec<i32> = (0..n)
+            .filter(|&i| mask & (1 << i) != 0)
+            .map(|i| nums[i])
+            .collect();
+        // check if this subsequence is strictly increasing
+        let is_increasing = subseq.windows(2).all(|w| w[0] < w[1]);
+        if is_increasing {
+            best = best.max(subseq.len());
+        }
+    }
+    best
+}`
 
-const q5Opt = `def lis(nums):
-    n = len(nums)
-    # dp[i] = length of longest increasing subsequence ending at index i
-    dp = [1] * n                        # every element alone is a subsequence of length 1
+const q5Opt = `fn lis(nums: &[i32]) -> usize {
+    let n = nums.len();
+    // dp[i] = length of longest increasing subsequence ending at index i
+    let mut dp = vec![1usize; n];  // every element alone is a subsequence of length 1
 
-    for i in range(1, n):
-        for j in range(i):              # look at all elements before i
-            if nums[j] < nums[i]:       # nums[j] can extend a subsequence ending at j
-                dp[i] = max(dp[i], dp[j] + 1)   # extend that subsequence
+    for i in 1..n {
+        for j in 0..i {                    // look at all elements before i
+            if nums[j] < nums[i] {         // nums[j] can extend a subsequence ending at j
+                dp[i] = dp[i].max(dp[j] + 1);  // extend that subsequence
+            }
+        }
+    }
 
-    return max(dp)                      # longest LIS ending at any index`
+    *dp.iter().max().unwrap_or(&0)  // longest LIS ending at any index
+}`
 
 // ── PRACTICE answers ───────────────────────────────────────────────────────
-const pq1Code = `# House Robber — can't rob adjacent houses, maximize total
-def rob(nums):
-    if not nums:
-        return 0
-    if len(nums) == 1:
-        return nums[0]
+const pq1Code = `// House Robber — can't rob adjacent houses, maximize total
+fn rob(nums: &[i32]) -> i32 {
+    if nums.is_empty() { return 0; }
+    if nums.len() == 1 { return nums[0]; }
 
-    # dp[i] = max money robbing from houses 0..i
-    # At house i: either rob it (dp[i-2] + nums[i]) or skip it (dp[i-1])
-    prev2 = nums[0]             # dp[i-2]: best up to two houses ago
-    prev1 = max(nums[0], nums[1])  # dp[i-1]: best up to one house ago
+    // dp[i] = max money robbing from houses 0..=i
+    // At house i: either rob it (prev2 + nums[i]) or skip it (prev1)
+    let mut prev2 = nums[0];                        // dp[i-2]: best up to two houses ago
+    let mut prev1 = nums[0].max(nums[1]);           // dp[i-1]: best up to one house ago
 
-    for i in range(2, len(nums)):
-        curr = max(prev1,              # skip house i
-                   prev2 + nums[i])   # rob house i (can't use adjacent)
-        prev2, prev1 = prev1, curr
+    for i in 2..nums.len() {
+        let curr = prev1                            // skip house i
+            .max(prev2 + nums[i]);                 // rob house i (can't use adjacent)
+        prev2 = prev1;
+        prev1 = curr;
+    }
 
-    return prev1`
+    prev1
+}`
 
-const pq2Code = `# Climbing Stairs — reach step n using 1 or 2 steps at a time
-# Identical to Fibonacci: ways(n) = ways(n-1) + ways(n-2)
-def climb_stairs(n):
-    if n <= 2:
-        return n
-    prev2, prev1 = 1, 2          # ways to reach step 1, step 2
-    for i in range(3, n + 1):
-        curr = prev1 + prev2     # reach step i from step i-1 or step i-2
-        prev2, prev1 = prev1, curr
-    return prev1`
+const pq2Code = `// Climbing Stairs — reach step n using 1 or 2 steps at a time
+// Identical to Fibonacci: ways(n) = ways(n-1) + ways(n-2)
+fn climb_stairs(n: u32) -> u32 {
+    if n <= 2 { return n; }
+    let mut prev2 = 1u32;  // ways to reach step 1
+    let mut prev1 = 2u32;  // ways to reach step 2
+    for _ in 3..=n {
+        let curr = prev1 + prev2;  // reach step i from step i-1 or step i-2
+        prev2 = prev1;
+        prev1 = curr;
+    }
+    prev1
+}`
 
-const pq3Code = `# Unique Paths — grid from top-left to bottom-right, only right or down
-def unique_paths(m, n):
-    # dp[i][j] = number of unique paths to reach cell (i, j)
-    dp = [[1] * n for _ in range(m)]  # first row and column are all 1 (only one way)
+const pq3Code = `// Unique Paths — grid from top-left to bottom-right, only right or down
+fn unique_paths(m: usize, n: usize) -> u64 {
+    // dp[i][j] = number of unique paths to reach cell (i, j)
+    let mut dp = vec![vec![1u64; n]; m];  // first row and column are all 1 (only one way)
 
-    for i in range(1, m):
-        for j in range(1, n):
-            # reach (i,j) from above (i-1,j) or from left (i,j-1)
-            dp[i][j] = dp[i-1][j] + dp[i][j-1]
+    for i in 1..m {
+        for j in 1..n {
+            // reach (i,j) from above (i-1,j) or from left (i,j-1)
+            dp[i][j] = dp[i - 1][j] + dp[i][j - 1];
+        }
+    }
 
-    return dp[m-1][n-1]          # bottom-right corner`
+    dp[m - 1][n - 1]  // bottom-right corner
+}`
 
-const pq4Code = `# Edit Distance — minimum operations (insert/delete/replace) to convert s1 to s2
-def min_distance(s1, s2):
-    m, n = len(s1), len(s2)
-    # dp[i][j] = edit distance between s1[:i] and s2[:j]
-    dp = [[0]*(n+1) for _ in range(m+1)]
+const pq4Code = `// Edit Distance — minimum operations (insert/delete/replace) to convert s1 to s2
+fn min_distance(s1: &str, s2: &str) -> usize {
+    let s1 = s1.as_bytes();
+    let s2 = s2.as_bytes();
+    let (m, n) = (s1.len(), s2.len());
+    // dp[i][j] = edit distance between s1[..i] and s2[..j]
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
 
-    for i in range(m+1):
-        dp[i][0] = i             # delete all chars from s1 to reach empty s2
-    for j in range(n+1):
-        dp[0][j] = j             # insert all chars to build s2 from empty s1
+    for i in 0..=m { dp[i][0] = i; }  // delete all chars from s1 to reach empty s2
+    for j in 0..=n { dp[0][j] = j; }  // insert all chars to build s2 from empty s1
 
-    for i in range(1, m+1):
-        for j in range(1, n+1):
-            if s1[i-1] == s2[j-1]:
-                dp[i][j] = dp[i-1][j-1]          # chars match: no operation needed
-            else:
-                dp[i][j] = 1 + min(
-                    dp[i-1][j-1],    # replace s1[i-1] with s2[j-1]
-                    dp[i-1][j],      # delete s1[i-1]
-                    dp[i][j-1]       # insert s2[j-1] after position i
-                )
-    return dp[m][n]`
+    for i in 1..=m {
+        for j in 1..=n {
+            if s1[i - 1] == s2[j - 1] {
+                dp[i][j] = dp[i - 1][j - 1];          // chars match: no operation needed
+            } else {
+                dp[i][j] = 1 + dp[i - 1][j - 1]      // replace s1[i-1] with s2[j-1]
+                    .min(dp[i - 1][j])                 // delete s1[i-1]
+                    .min(dp[i][j - 1]);                // insert s2[j-1] after position i
+            }
+        }
+    }
+    dp[m][n]
+}`
 
-const pq5Code = `# Partition Equal Subset Sum — can we split into two equal-sum subsets?
-def can_partition(nums):
-    total = sum(nums)
-    if total % 2 != 0:
-        return False             # odd total can't be split into two equal halves
-    target = total // 2
+const pq5Code = `// Partition Equal Subset Sum — can we split into two equal-sum subsets?
+fn can_partition(nums: &[i32]) -> bool {
+    let total: i32 = nums.iter().sum();
+    if total % 2 != 0 { return false; }  // odd total can't be split into two equal halves
+    let target = (total / 2) as usize;
 
-    # dp[s] = True if some subset sums to exactly s
-    dp = [False] * (target + 1)
-    dp[0] = True                 # empty subset sums to 0
+    // dp[s] = true if some subset sums to exactly s
+    let mut dp = vec![false; target + 1];
+    dp[0] = true;                         // empty subset sums to 0
 
-    for num in nums:
-        # iterate BACKWARD to avoid using the same num twice (0/1 knapsack trick)
-        for s in range(target, num - 1, -1):
-            dp[s] = dp[s] or dp[s - num]   # include num, or don't
+    for &num in nums {
+        let num = num as usize;
+        // iterate BACKWARD to avoid using the same num twice (0/1 knapsack trick)
+        for s in (num..=target).rev() {
+            dp[s] = dp[s] || dp[s - num];  // include num, or don't
+        }
+    }
 
-    return dp[target]            # can we reach exactly target?`
+    dp[target]  // can we reach exactly target?
+}`
 
 export default function DynamicProgrammingContent() {
   return (
@@ -438,14 +491,14 @@ export default function DynamicProgrammingContent() {
 Example: fib(10) = 55`}
           brute={<>
             <BigOBadge time="O(2ⁿ)" space="O(n)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
             <Callout type="warn">Exponential time — fib(50) takes trillions of calls. The same subproblems get recalculated over and over.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1) bottom-up" />
             <CodeBlock code={LIS_TABLE.includes('fib') ? '' : ''} lang="text" />
             <CodeBlock code={FIB_TABLE} lang="text" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Memoization turns the tree into a straight line —
               each unique subproblem is solved exactly once. Bottom-up goes even further:
@@ -453,13 +506,13 @@ Example: fib(10) = 55`}
               entirely and use just two variables. O(1) space!
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Using a mutable default argument
-              (<code>memo={'{}'}</code>) in Python. Works but can leak state between calls
-              in some environments. Use <code>memo=None</code> and initialize inside the
-              function for safety.
+              <strong>Common mistake:</strong> In Rust, use <code>Vec&lt;Option&lt;i64&gt;&gt;</code>
+              for the memo table, initialized with <code>vec![None; n + 1]</code>.
+              Pattern-match with <code>if let Some(val) = memo[n]</code> to retrieve
+              cached results safely.
             </Callout>
           </>}
-          answer="Top-down: recurse + cache in dict. Bottom-up: loop from 2 to n keeping only prev two values. Both O(n) time; bottom-up is O(1) space."
+          answer="Top-down: recurse + cache in Vec<Option<i64>>. Bottom-up: loop from 2 to n keeping only prev two values. Both O(n) time; bottom-up is O(1) space."
         />
 
         <QuestionCard
@@ -471,13 +524,13 @@ Example: fib(10) = 55`}
 Example: weights=[2,3,4,5], values=[3,4,5,6], capacity=5 → 7 (items 0+1: weight 2+3=5, value 3+4=7)`}
           brute={<>
             <BigOBadge time="O(2ⁿ)" space="O(n)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
             <Callout type="warn">Checking every subset is 2^n — fine for n=20, terrible for n=40+.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n·W)" space="O(n·W)" />
             <CodeBlock code={KNAPSACK_TABLE} lang="text" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> At each cell <code>dp[i][w]</code> you make
               one binary decision: take item i or skip it. "Take it" means you had
@@ -503,12 +556,12 @@ Example: weights=[2,3,4,5], values=[3,4,5,6], capacity=5 → 7 (items 0+1: weigh
 Example: s1="ABCDE", s2="ACE" → 3 (LCS = "ACE")`}
           brute={<>
             <BigOBadge time="O(2^(m+n))" space="O(m+n)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(m·n)" space="O(m·n)" />
             <CodeBlock code={LCS_TABLE} lang="text" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> When the characters match (<code>s1[i-1] == s2[j-1]</code>),
               you extend the diagonal cell by 1 — that's free progress. When they don't match,
@@ -518,8 +571,8 @@ Example: s1="ABCDE", s2="ACE" → 3 (LCS = "ACE")`}
             <Callout type="danger">
               <strong>Common mistake:</strong> 0-indexing confusion. The table is (m+1)×(n+1)
               with a row and column of zeros as base cases. When filling cell (i, j),
-              you're comparing characters at <code>s1[i-1]</code> and <code>s2[j-1]</code>
-              (0-indexed into the strings).
+              you're comparing bytes at <code>s1[i-1]</code> and <code>s2[j-1]</code>
+              via <code>as_bytes()</code>.
             </Callout>
           </>}
           answer="dp[i][j]: if chars match, dp[i-1][j-1]+1. Else max(dp[i-1][j], dp[i][j-1]). Fill the (m+1)×(n+1) table. Answer at dp[m][n]."
@@ -534,13 +587,13 @@ Example: s1="ABCDE", s2="ACE" → 3 (LCS = "ACE")`}
 Example: coins=[1,2,5], amount=11 → 3 (5+5+1)`}
           brute={<>
             <BigOBadge time="O(amount^n)" space="O(amount)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
             <Callout type="warn">Exponential without memoization — tries every combination of coins repeatedly.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(amount · n)" space="O(amount)" />
             <CodeBlock code={COIN_TABLE} lang="text" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> The key insight is that <code>dp[a]</code> only
               depends on <code>dp[a - coin]</code> for each coin. So you can fill
@@ -549,12 +602,12 @@ Example: coins=[1,2,5], amount=11 → 3 (5+5+1)`}
               10 (coin=1), step 9 (coin=2), or step 6 (coin=5).
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Initializing dp[0] = infinity instead of 0.
+              <strong>Common mistake:</strong> Initializing dp[0] = i32::MAX instead of 0.
               The base case is "0 coins to make amount 0". Without this, nothing propagates
               correctly through the table.
             </Callout>
           </>}
-          answer="dp[0]=0, dp[1..amount]=inf. For each amount a, for each coin c: dp[a] = min(dp[a], dp[a-c]+1). Return dp[amount] or -1 if still infinity."
+          answer="dp[0]=0, dp[1..amount]=i32::MAX. For each amount a, for each coin c: dp[a] = dp[a].min(dp[a-c]+1). Return dp[amount] or -1 if still i32::MAX."
         />
 
         <QuestionCard
@@ -566,12 +619,12 @@ Example: coins=[1,2,5], amount=11 → 3 (5+5+1)`}
 Example: [10,9,2,5,3,7,101,18] → 4 (e.g. [2,3,7,101])`}
           brute={<>
             <BigOBadge time="O(2ⁿ)" space="O(n)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n²)" space="O(n)" />
             <CodeBlock code={LIS_TABLE} lang="text" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> <code>dp[i]</code> means "the LIS that MUST
               end at index i". To compute it, look at every earlier index j where
@@ -581,11 +634,11 @@ Example: [10,9,2,5,3,7,101,18] → 4 (e.g. [2,3,7,101])`}
             </Callout>
             <Callout type="danger">
               <strong>Common mistake:</strong> Returning <code>dp[n-1]</code> instead of
-              <code>max(dp)</code>. The longest subsequence doesn't have to END at the
-              last index — it could end anywhere in the array.
+              <code>*dp.iter().max().unwrap()</code>. The longest subsequence doesn't have
+              to END at the last index — it could end anywhere in the array.
             </Callout>
           </>}
-          answer="dp[i]=1 initially (each element alone). For each i, for each j<i: if nums[j]<nums[i]: dp[i] = max(dp[i], dp[j]+1). Return max(dp)."
+          answer="dp[i]=1 initially (each element alone). For each i, for each j<i: if nums[j]<nums[i]: dp[i] = dp[i].max(dp[j]+1). Return *dp.iter().max().unwrap()."
         />
 
       </Sub>
@@ -609,7 +662,7 @@ Example: [2,7,9,3,1] → 12 (rob houses 0, 2, 4: 2+9+1=12)`}
             "At house i, you either rob it (prev2 + nums[i]) or skip it (prev1). Take the max.",
             "Only need the previous two dp values — use two variables instead of a full array.",
           ]}
-          answer="dp[i] = max(dp[i-1], dp[i-2] + nums[i]). Optimize to two variables: prev2, prev1. Return prev1."
+          answer="dp[i] = dp[i-1].max(dp[i-2] + nums[i]). Optimize to two variables: prev2, prev1. Return prev1."
           answerCode={pq1Code}
         />
 
@@ -656,7 +709,7 @@ Example: m=3, n=7 → 28`}
 
 Example: s1="horse", s2="ros" → 3`}
           hints={[
-            "dp[i][j] = edit distance between s1[:i] and s2[:j].",
+            "dp[i][j] = edit distance between s1[..i] and s2[..j].",
             "If s1[i-1]==s2[j-1]: dp[i][j] = dp[i-1][j-1] (no operation needed for matching chars).",
             "If they differ: dp[i][j] = 1 + min(dp[i-1][j-1] replace, dp[i-1][j] delete, dp[i][j-1] insert).",
           ]}
@@ -675,9 +728,9 @@ Example: [1,5,11,5] → True (subsets [1,5,5] and [11])`}
           hints={[
             "Equal partition means each half sums to total/2. If total is odd, impossible immediately.",
             "Reduce to: can any subset sum to total/2? This is a 0/1 knapsack problem.",
-            "dp[s] = True if some subset sums to s. For each num, iterate s backward from target to num: dp[s] |= dp[s-num].",
+            "dp[s] = true if some subset sums to s. For each num, iterate s backward from target to num: dp[s] |= dp[s-num].",
           ]}
-          answer="If total is odd: False. Otherwise: 0/1 knapsack — dp[s] = can we reach sum s? Iterate nums; for each, update dp backward. Return dp[total//2]."
+          answer="If total is odd: false. Otherwise: 0/1 knapsack — dp[s] = can we reach sum s? Iterate nums; for each, update dp backward. Return dp[total/2]."
           answerCode={pq5Code}
         />
       </Sub>

@@ -61,285 +61,351 @@ KEY IDEA: heap always holds the current "frontier" —
 `
 
 // ── Q1: Merge K Sorted Lists ───────────────────────────────────────────────
-const q1Brute = `# Brute: collect all values, sort, rebuild linked list — O(n log n)
-def merge_k_lists_brute(lists):
-    vals = []
-    for node in lists:
-        while node:
-            vals.append(node.val)
-            node = node.next
-    vals.sort()
-    dummy = ListNode(0)
-    curr = dummy
-    for v in vals:
-        curr.next = ListNode(v)
-        curr = curr.next
-    return dummy.next`
+const q1Brute = `// Brute: collect all values, sort, rebuild — O(n log n)
+fn merge_k_lists_brute(lists: Vec<Vec<i32>>) -> Vec<i32> {
+    let mut vals: Vec<i32> = lists.into_iter().flatten().collect();
+    vals.sort();
+    vals
+}`
 
-const q1Opt = `import heapq
+const q1Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def merge_k_lists(lists):
-    dummy = ListNode(0)              # dummy head makes building result list easy
-    curr = dummy
-    heap = []
+fn merge_k_lists(lists: Vec<Vec<i32>>) -> Vec<i32> {
+    // min-heap stores (value, list_index, element_index)
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = BinaryHeap::new();
 
-    # seed heap with the head of each non-empty list
-    for i, node in enumerate(lists):
-        if node:
-            heapq.heappush(heap, (node.val, i, node))  # (value, list_idx, node)
+    // seed heap with the head of each non-empty list
+    for (i, list) in lists.iter().enumerate() {
+        if !list.is_empty() {
+            heap.push(Reverse((list[0], i, 0)));  // (value, list_idx, elem_idx)
+        }
+    }
 
-    while heap:
-        val, i, node = heapq.heappop(heap)   # globally smallest current element
-        curr.next = node                      # attach to result
-        curr = curr.next
-        if node.next:
-            heapq.heappush(heap, (node.next.val, i, node.next))  # advance in same list
+    let mut result: Vec<i32> = Vec::new();
 
-    return dummy.next`
+    while let Some(Reverse((val, list_idx, elem_idx))) = heap.pop() {
+        result.push(val);                          // globally smallest current element
+        let next_idx = elem_idx + 1;
+        if next_idx < lists[list_idx].len() {
+            // advance pointer in the same list
+            heap.push(Reverse((lists[list_idx][next_idx], list_idx, next_idx)));
+        }
+    }
+    result
+}`
 
 // ── Q2: Kth Smallest in M Sorted Lists ────────────────────────────────────
-const q2Brute = `# Brute: merge all, sort, return kth — O(N log N) where N = total elements
-def kth_smallest_brute(lists, k):
-    all_vals = []
-    for lst in lists:
-        all_vals.extend(lst)
-    all_vals.sort()
-    return all_vals[k - 1]`
+const q2Brute = `// Brute: merge all, sort, return kth — O(N log N) where N = total elements
+fn kth_smallest_brute(lists: Vec<Vec<i32>>, k: usize) -> i32 {
+    let mut all_vals: Vec<i32> = lists.into_iter().flatten().collect();
+    all_vals.sort();
+    all_vals[k - 1]
+}`
 
-const q2Opt = `import heapq
+const q2Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def kth_smallest(lists, k):
-    # seed with first element of each list: (value, list_index, element_index)
-    heap = [(lists[i][0], i, 0)
-            for i in range(len(lists)) if lists[i]]
-    heapq.heapify(heap)
+fn kth_smallest(lists: Vec<Vec<i32>>, k: usize) -> i32 {
+    // seed with first element of each list: (value, list_index, element_index)
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = lists
+        .iter()
+        .enumerate()
+        .filter(|(_, lst)| !lst.is_empty())
+        .map(|(i, lst)| Reverse((lst[0], i, 0)))
+        .collect();
 
-    count = 0
-    while heap:
-        val, list_i, elem_i = heapq.heappop(heap)
-        count += 1
-        if count == k:
-            return val               # this is the kth smallest overall
-        # push next element from the same list
-        if elem_i + 1 < len(lists[list_i]):
-            next_val = lists[list_i][elem_i + 1]
-            heapq.heappush(heap, (next_val, list_i, elem_i + 1))
-
-    return -1                        # k is larger than total element count`
+    let mut count = 0;
+    while let Some(Reverse((val, list_i, elem_i))) = heap.pop() {
+        count += 1;
+        if count == k {
+            return val;              // this is the kth smallest overall
+        }
+        // push next element from the same list
+        let next_i = elem_i + 1;
+        if next_i < lists[list_i].len() {
+            heap.push(Reverse((lists[list_i][next_i], list_i, next_i)));
+        }
+    }
+    -1                               // k is larger than total element count
+}`
 
 // ── Q3: Find K Pairs with Smallest Sums ───────────────────────────────────
-const q3Brute = `# Brute: generate all pairs, sort by sum, take first k
-def k_smallest_pairs_brute(nums1, nums2, k):
-    pairs = []
-    for a in nums1:
-        for b in nums2:
-            pairs.append((a + b, a, b))
-    pairs.sort()
-    return [[a, b] for _, a, b in pairs[:k]]`
+const q3Brute = `// Brute: generate all pairs, sort by sum, take first k
+fn k_smallest_pairs_brute(nums1: Vec<i32>, nums2: Vec<i32>, k: usize) -> Vec<[i32; 2]> {
+    let mut pairs: Vec<(i32, i32, i32)> = nums1
+        .iter()
+        .flat_map(|&a| nums2.iter().map(move |&b| (a + b, a, b)))
+        .collect();
+    pairs.sort();
+    pairs.into_iter().take(k).map(|(_, a, b)| [a, b]).collect()
+}`
 
-const q3Opt = `import heapq
+const q3Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def k_smallest_pairs(nums1, nums2, k):
-    if not nums1 or not nums2:
-        return []
-    heap = []
-    result = []
+fn k_smallest_pairs(nums1: Vec<i32>, nums2: Vec<i32>, k: usize) -> Vec<[i32; 2]> {
+    if nums1.is_empty() || nums2.is_empty() {
+        return vec![];
+    }
 
-    # Treat each row of a virtual sum-matrix as a sorted list.
-    # nums1[i] + nums2[j] is sorted ascending in j for fixed i.
-    # Seed heap with (nums1[i] + nums2[0], i, 0) for each i.
-    for i in range(min(k, len(nums1))):      # only need first k rows
-        heapq.heappush(heap, (nums1[i] + nums2[0], i, 0))
+    // Treat each row of a virtual sum-matrix as a sorted list.
+    // nums1[i] + nums2[j] is sorted ascending in j for fixed i.
+    // Seed heap with (nums1[i] + nums2[0], i, 0) for each i.
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = BinaryHeap::new();
+    for i in 0..k.min(nums1.len()) {   // only need first k rows
+        heap.push(Reverse((nums1[i] + nums2[0], i, 0)));
+    }
 
-    while heap and len(result) < k:
-        total, i, j = heapq.heappop(heap)
-        result.append([nums1[i], nums2[j]])
-        if j + 1 < len(nums2):
-            # advance j in this "row" (same nums1[i], next nums2 element)
-            heapq.heappush(heap, (nums1[i] + nums2[j + 1], i, j + 1))
+    let mut result: Vec<[i32; 2]> = Vec::new();
 
-    return result`
+    while let Some(Reverse((_, i, j))) = heap.pop() {
+        if result.len() == k { break; }
+        result.push([nums1[i], nums2[j]]);
+        if j + 1 < nums2.len() {
+            // advance j in this "row" (same nums1[i], next nums2 element)
+            heap.push(Reverse((nums1[i] + nums2[j + 1], i, j + 1)));
+        }
+    }
+    result
+}`
 
 // ── Q4: Merge K Sorted Arrays ─────────────────────────────────────────────
-const q4Brute = `# Brute: flatten and sort — O(N log N)
-def merge_k_arrays_brute(arrays):
-    merged = []
-    for arr in arrays:
-        merged.extend(arr)
-    return sorted(merged)`
+const q4Brute = `// Brute: flatten and sort — O(N log N)
+fn merge_k_arrays_brute(arrays: Vec<Vec<i32>>) -> Vec<i32> {
+    let mut merged: Vec<i32> = arrays.into_iter().flatten().collect();
+    merged.sort();
+    merged
+}`
 
-const q4Opt = `import heapq
+const q4Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def merge_k_arrays(arrays):
-    result = []
-    # heap entry: (value, array_index, element_index)
-    heap = [(arrays[i][0], i, 0)
-            for i in range(len(arrays)) if arrays[i]]
-    heapq.heapify(heap)
+fn merge_k_arrays(arrays: Vec<Vec<i32>>) -> Vec<i32> {
+    let mut result: Vec<i32> = Vec::new();
+    // heap entry: (value, array_index, element_index)
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = arrays
+        .iter()
+        .enumerate()
+        .filter(|(_, arr)| !arr.is_empty())
+        .map(|(i, arr)| Reverse((arr[0], i, 0)))
+        .collect();
 
-    while heap:
-        val, arr_i, elem_i = heapq.heappop(heap)
-        result.append(val)
-        if elem_i + 1 < len(arrays[arr_i]):
-            next_val = arrays[arr_i][elem_i + 1]
-            heapq.heappush(heap, (next_val, arr_i, elem_i + 1))
-
-    return result`
+    while let Some(Reverse((val, arr_i, elem_i))) = heap.pop() {
+        result.push(val);
+        let next_i = elem_i + 1;
+        if next_i < arrays[arr_i].len() {
+            heap.push(Reverse((arrays[arr_i][next_i], arr_i, next_i)));
+        }
+    }
+    result
+}`
 
 // ── Q5: Smallest Range Covering Elements from K Lists ─────────────────────
-const q5Brute = `# Brute: generate all possible ranges [a, b] and check coverage — O(N^2 * K)
-def smallest_range_brute(nums):
-    # collect all values with their list index
-    all_vals = sorted([(val, i) for i, lst in enumerate(nums) for val in lst])
-    k = len(nums)
-    best = [all_vals[0][0], all_vals[-1][0]]
+const q5Brute = `// Brute: generate all possible ranges [a, b] and check coverage — O(N^2 * K)
+fn smallest_range_brute(nums: Vec<Vec<i32>>) -> [i32; 2] {
+    // collect all values with their list index
+    let mut all_vals: Vec<(i32, usize)> = nums
+        .iter()
+        .enumerate()
+        .flat_map(|(i, lst)| lst.iter().map(move |&v| (v, i)))
+        .collect();
+    all_vals.sort();
+    let k = nums.len();
+    let mut best = [all_vals[0].0, all_vals[all_vals.len() - 1].0];
 
-    for left in range(len(all_vals)):
-        covered = set()
-        right = left
-        while right < len(all_vals) and len(covered) < k:
-            covered.add(all_vals[right][1])
-            right += 1
-        right -= 1
-        if len(covered) == k:
-            lo, hi = all_vals[left][0], all_vals[right][0]
-            if hi - lo < best[1] - best[0]:
-                best = [lo, hi]
-    return best`
+    for left in 0..all_vals.len() {
+        let mut covered = std::collections::HashSet::new();
+        let mut right = left;
+        while right < all_vals.len() && covered.len() < k {
+            covered.insert(all_vals[right].1);
+            right += 1;
+        }
+        if right > 0 { right -= 1; }
+        if covered.len() == k {
+            let (lo, hi) = (all_vals[left].0, all_vals[right].0);
+            if hi - lo < best[1] - best[0] {
+                best = [lo, hi];
+            }
+        }
+    }
+    best
+}`
 
-const q5Opt = `import heapq
+const q5Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def smallest_range(nums):
-    # seed heap with the first element of each list, track current max
-    heap = [(lst[0], i, 0) for i, lst in enumerate(nums)]
-    heapq.heapify(heap)
-    current_max = max(lst[0] for lst in nums)
-    best_range = [heap[0][0], current_max]   # initial range: min to max of first elements
+fn smallest_range(nums: Vec<Vec<i32>>) -> [i32; 2] {
+    // seed heap with the first element of each list, track current max
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = BinaryHeap::new();
+    let mut current_max = i32::MIN;
 
-    while True:
-        current_min, list_i, elem_i = heapq.heappop(heap)
-        # current window is [current_min, current_max]
-        if current_max - current_min < best_range[1] - best_range[0]:
-            best_range = [current_min, current_max]
-        # advance the list that had the minimum
-        if elem_i + 1 == len(nums[list_i]):
-            break                    # one list exhausted → can't cover all k lists anymore
-        next_val = nums[list_i][elem_i + 1]
-        heapq.heappush(heap, (next_val, list_i, elem_i + 1))
-        current_max = max(current_max, next_val)   # update max if needed
+    for (i, lst) in nums.iter().enumerate() {
+        if !lst.is_empty() {
+            heap.push(Reverse((lst[0], i, 0)));
+            current_max = current_max.max(lst[0]);
+        }
+    }
 
-    return best_range`
+    // initial range: min to max of first elements
+    let mut best_range = if let Some(&Reverse((min_val, _, _))) = heap.peek() {
+        [min_val, current_max]
+    } else {
+        return [0, 0];
+    };
+
+    loop {
+        let Reverse((current_min, list_i, elem_i)) = heap.pop().unwrap();
+        // current window is [current_min, current_max]
+        if current_max - current_min < best_range[1] - best_range[0] {
+            best_range = [current_min, current_max];
+        }
+        // advance the list that had the minimum
+        let next_i = elem_i + 1;
+        if next_i == nums[list_i].len() {
+            break;                   // one list exhausted → can't cover all k lists anymore
+        }
+        let next_val = nums[list_i][next_i];
+        heap.push(Reverse((next_val, list_i, next_i)));
+        current_max = current_max.max(next_val);   // update max if needed
+    }
+    best_range
+}`
 
 // ── PRACTICE answers ───────────────────────────────────────────────────────
-const pq1Code = `import heapq
+const pq1Code = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-# Sort an array using K-way merge (external sort simulation)
-# Split into chunks of size k, sort each chunk, then k-way merge
-def sort_array_kway(nums, k):
-    n = len(nums)
-    # split into sorted chunks
-    chunks = []
-    for i in range(0, n, k):
-        chunk = sorted(nums[i:i+k])
-        chunks.append(chunk)
-    # k-way merge the sorted chunks
-    heap = [(chunks[i][0], i, 0) for i in range(len(chunks))]
-    heapq.heapify(heap)
-    result = []
-    while heap:
-        val, ci, ei = heapq.heappop(heap)
-        result.append(val)
-        if ei + 1 < len(chunks[ci]):
-            heapq.heappush(heap, (chunks[ci][ei+1], ci, ei+1))
-    return result`
+// Sort an array using K-way merge (external sort simulation)
+// Split into chunks of size k, sort each chunk, then k-way merge
+fn sort_array_kway(nums: Vec<i32>, k: usize) -> Vec<i32> {
+    // split into sorted chunks
+    let chunks: Vec<Vec<i32>> = nums
+        .chunks(k)
+        .map(|c| { let mut v = c.to_vec(); v.sort(); v })
+        .collect();
 
-const pq2Code = `import heapq
+    // k-way merge the sorted chunks
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = chunks
+        .iter()
+        .enumerate()
+        .map(|(ci, chunk)| Reverse((chunk[0], ci, 0)))
+        .collect();
 
-# Kth Smallest Prime Fraction — from array of primes, find kth smallest a/b
-def kth_smallest_prime_fraction(arr, k):
-    n = len(arr)
-    # treat each "row i" as fractions arr[i]/arr[j] for j > i, sorted ascending in j descending
-    # seed heap: (fraction, i, j) where j starts at n-1 (smallest fraction in each row)
-    heap = []
-    for i in range(n - 1):
-        heapq.heappush(heap, (arr[i] / arr[n-1], i, n-1))
+    let mut result: Vec<i32> = Vec::new();
+    while let Some(Reverse((val, ci, ei))) = heap.pop() {
+        result.push(val);
+        let next = ei + 1;
+        if next < chunks[ci].len() {
+            heap.push(Reverse((chunks[ci][next], ci, next)));
+        }
+    }
+    result
+}`
 
-    count = 0
-    while heap:
-        frac, i, j = heapq.heappop(heap)
-        count += 1
-        if count == k:
-            return [arr[i], arr[j]]
-        if j - 1 > i:                      # move j left (larger fraction from this row)
-            heapq.heappush(heap, (arr[i] / arr[j-1], i, j-1))
-    return []`
+const pq2Code = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-const pq3Code = `import heapq
+// Kth Smallest Prime Fraction — from array of primes, find kth smallest a/b
+fn kth_smallest_prime_fraction(arr: Vec<i32>, k: usize) -> [i32; 2] {
+    let n = arr.len();
+    // treat each "row i" as fractions arr[i]/arr[j] for j > i, sorted ascending in j descending
+    // seed heap: (fraction_numerator*denom_inv, i, j) where j starts at n-1
+    // store as ordered float via (numerator, denominator) and compare as f64
+    let mut heap: BinaryHeap<Reverse<(ordered_float::NotNan<f64>, usize, usize)>> =
+        BinaryHeap::new();
 
-# Kth Smallest Sum of a Matrix with Sorted Rows
-# Each row is sorted. Sum = pick one from each row.
-# Use a min-heap over combinations (BFS-style layer by layer)
-def kth_smallest_matrix_sum(mat, k):
-    # start with just the first element of each row combined
-    # merge row by row: current = sorted sums using rows[0..i]
-    current = [mat[0][0]]   # after processing row 0
+    // simpler: use i64 pair (num, den) and compare; heap stores (num, den, i, j)
+    // represent fraction as (num * BIG - den) for integer comparison, or just use f64
+    let mut heap2: BinaryHeap<Reverse<(i64, usize, usize)>> = BinaryHeap::new();
+    let scale = 1_000_000i64;
+    for i in 0..n - 1 {
+        // arr[i]/arr[n-1] is the smallest fraction in row i
+        let frac = (arr[i] as i64 * scale) / arr[n - 1] as i64;
+        heap2.push(Reverse((frac, i, n - 1)));
+    }
 
-    for row in mat[1:]:
-        # combine current sums with elements of this row
-        heap = []
-        for s in current:
-            heapq.heappush(heap, s + row[0])
-        candidates = []
-        seen_j = {0: list(range(len(current)))}  # track which row element each sum used
+    let mut count = 0;
+    while let Some(Reverse((_, i, j))) = heap2.pop() {
+        count += 1;
+        if count == k {
+            return [arr[i], arr[j]];
+        }
+        if j - 1 > i {                     // move j left (larger fraction from this row)
+            let frac = (arr[i] as i64 * scale) / arr[j - 1] as i64;
+            heap2.push(Reverse((frac, i, j - 1)));
+        }
+    }
+    []
+}`
 
-        # extract k smallest sums from this combination
-        next_k = []
-        ptr = [0] * len(current)   # pointer per current-sum showing which row element used
+const pq3Code = `// Kth Smallest Sum of a Matrix with Sorted Rows
+// Each row is sorted. Sum = pick one from each row.
+// Use a min-heap over combinations (BFS-style layer by layer)
+fn kth_smallest_matrix_sum(mat: Vec<Vec<i32>>, k: usize) -> i32 {
+    // start with just the first element of each row combined
+    // merge row by row: current = sorted sums using rows[0..i]
+    let mut current = vec![mat[0][0]];   // after processing row 0
 
-        # simpler approach: take all combinations, sort, keep k
-        combos = sorted(s + r for s in current for r in row)
-        current = combos[:k]
+    for row in mat.iter().skip(1) {
+        // combine current sums with elements of this row
+        // simpler approach: take all combinations, sort, keep k
+        let mut combos: Vec<i32> = current
+            .iter()
+            .flat_map(|&s| row.iter().map(move |&r| s + r))
+            .collect();
+        combos.sort();
+        combos.truncate(k);
+        current = combos;
+    }
+    current[k - 1]
+}`
 
-    return current[k-1]`
+const pq4Code = `// Merge Sorted Array — two-pointer merge in-place (from the back)
+fn merge_sorted_array(nums1: &mut Vec<i32>, m: usize, nums2: &[i32], n: usize) {
+    // p1 points to last valid in nums1, p2 to last in nums2, p to last slot overall
+    let (mut p1, mut p2, mut p) = (m as i32 - 1, n as i32 - 1, (m + n) as i32 - 1);
 
-const pq4Code = `# Merge Sorted Array — two-pointer merge in-place (from the back)
-def merge_sorted_array(nums1, m, nums2, n):
-    # p1 points to last valid in nums1, p2 to last in nums2, p to last slot overall
-    p1, p2, p = m - 1, n - 1, m + n - 1
+    while p1 >= 0 && p2 >= 0 {
+        if nums1[p1 as usize] > nums2[p2 as usize] {
+            nums1[p as usize] = nums1[p1 as usize];  // larger element goes to the back
+            p1 -= 1;
+        } else {
+            nums1[p as usize] = nums2[p2 as usize];
+            p2 -= 1;
+        }
+        p -= 1;
+    }
 
-    while p1 >= 0 and p2 >= 0:
-        if nums1[p1] > nums2[p2]:
-            nums1[p] = nums1[p1]    # larger element goes to the back
-            p1 -= 1
-        else:
-            nums1[p] = nums2[p2]
-            p2 -= 1
-        p -= 1
+    // if nums2 still has elements, copy them (nums1 elements are already in place)
+    while p2 >= 0 {
+        nums1[p as usize] = nums2[p2 as usize];
+        p2 -= 1;
+        p -= 1;
+    }
+}`
 
-    # if nums2 still has elements, copy them (nums1 elements are already in place)
-    while p2 >= 0:
-        nums1[p] = nums2[p2]
-        p2 -= 1
-        p -= 1`
+const pq5Code = `// Employee Free Time — find gaps between merged intervals across all schedules
+fn employee_free_time(schedules: Vec<Vec<[i32; 2]>>) -> Vec<[i32; 2]> {
+    // flatten all intervals into one list, then k-way merge by start time
+    let mut all_intervals: Vec<[i32; 2]> = schedules
+        .into_iter()
+        .flatten()
+        .collect();
+    all_intervals.sort_by_key(|iv| iv[0]);   // sort by start time
 
-const pq5Code = `import heapq
+    let mut result: Vec<[i32; 2]> = Vec::new();
+    let mut prev_end = all_intervals[0][1];  // track the end of the last covered interval
 
-# Employee Free Time — find gaps between merged intervals across all schedules
-def employee_free_time(schedules):
-    # flatten all intervals into one list, then k-way merge by start time
-    all_intervals = [(iv.start, iv.end) for employee in schedules for iv in employee]
-    all_intervals.sort()                 # sort by start time
-
-    result = []
-    _, prev_end = all_intervals[0]       # track the end of the last covered interval
-
-    for start, end in all_intervals[1:]:
-        if start > prev_end:
-            # gap found! [prev_end, start] is free time for everyone
-            result.append([prev_end, start])
-        prev_end = max(prev_end, end)    # extend coverage if this interval overlaps
-
-    return result`
+    for iv in all_intervals.iter().skip(1) {
+        if iv[0] > prev_end {
+            // gap found! [prev_end, iv[0]] is free time for everyone
+            result.push([prev_end, iv[0]]);
+        }
+        prev_end = prev_end.max(iv[1]);      // extend coverage if this interval overlaps
+    }
+    result
+}`
 
 export default function KWayMergeContent() {
   return (
@@ -371,11 +437,11 @@ export default function KWayMergeContent() {
           the heap — just the current frontier.
         </Callout>
         <Callout type="danger">
-          <strong>Python gotcha:</strong> If two elements have the same value, Python will
-          try to compare the second tuple element (list_index). Make sure list_index is
-          always a valid tie-breaker (an integer). If you're storing node objects as the
-          third element, Python can't compare them — use <code>(val, i, node)</code> where
-          <code>i</code> breaks ties before the node ever gets compared.
+          <strong>Rust note:</strong> Rust's <code>BinaryHeap</code> is a max-heap by default.
+          Wrap every entry in <code>Reverse(...)</code> to get min-heap behavior.
+          Use <code>while let Some(Reverse((val, list_idx, elem_idx))) = heap.pop()</code>
+          to destructure cleanly. Tuples compare lexicographically, so <code>list_idx</code>
+          acts as a natural tie-breaker when values are equal.
         </Callout>
       </Sub>
 
@@ -390,12 +456,12 @@ export default function KWayMergeContent() {
 Example: [[1→4→5],[1→3→4],[2→6]] → 1→1→2→3→4→4→5→6`}
           brute={<>
             <BigOBadge time="O(N log N)" space="O(N)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
             <Callout type="warn">Collecting all values and sorting ignores that the lists are already sorted. K-way merge exploits that structure.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(N log k)" space="O(k)" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> The heap never holds more than k elements at once —
               one "frontier" node per list. Each pop + push is O(log k). With N total nodes
@@ -403,13 +469,12 @@ Example: [[1→4→5],[1→3→4],[2→6]] → 1→1→2→3→4→4→5→6`}
               that's essentially O(N).
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Not including a list index in the heap tuple.
-              When two nodes have the same value, Python tries to compare the next element —
-              and two ListNode objects aren't comparable. The list index <code>i</code>
-              acts as a safe tie-breaker.
+              <strong>Common mistake:</strong> Forgetting <code>Reverse</code> around the heap
+              tuple. Without it, Rust's max-heap pops the largest element first, giving you a
+              descending merge instead of ascending. Always wrap with <code>Reverse((val, list_idx, elem_idx))</code>.
             </Callout>
           </>}
-          answer="Min-heap of (node.val, list_idx, node). Seed with heads. Each pop: attach node to result, push node.next if it exists. Return dummy.next."
+          answer="Min-heap of Reverse((val, list_idx, elem_idx)). Seed with first element of each list. Each pop: push next element from same list if it exists. Collect results."
         />
 
         <QuestionCard
@@ -421,11 +486,11 @@ Example: [[1→4→5],[1→3→4],[2→6]] → 1→1→2→3→4→4→5→6`}
 Example: lists=[[2,6,8],[3,6,7],[1,3,4]], k=5 → 4`}
           brute={<>
             <BigOBadge time="O(N log N)" space="O(N)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(k log M)" space="O(M)" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> You don't need to merge everything — stop as soon
               as you've popped k elements. The kth pop from a K-way merge gives exactly the
@@ -450,11 +515,11 @@ Example: lists=[[2,6,8],[3,6,7],[1,3,4]], k=5 → 4`}
 Example: nums1=[1,7,11], nums2=[2,4,6], k=3 → [[1,2],[1,4],[1,6]]`}
           brute={<>
             <BigOBadge time="O(m·n log m·n)" space="O(m·n)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(k log k)" space="O(k)" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Imagine a 2D matrix where entry (i, j) =
               nums1[i] + nums2[j]. Each row is sorted ascending. This is exactly a
@@ -479,11 +544,11 @@ Example: nums1=[1,7,11], nums2=[2,4,6], k=3 → [[1,2],[1,4],[1,6]]`}
 Example: [[1,3,5],[2,4,6],[0,7,8]] → [0,1,2,3,4,5,6,7,8]`}
           brute={<>
             <BigOBadge time="O(N log N)" space="O(N)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(N log k)" space="O(k)" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Identical to Merge K Sorted Lists — the only
               difference is arrays use index access instead of <code>.next</code> pointers.
@@ -496,7 +561,7 @@ Example: [[1,3,5],[2,4,6],[0,7,8]] → [0,1,2,3,4,5,6,7,8]`}
               one at a time as needed.
             </Callout>
           </>}
-          answer="Min-heap of (val, arr_idx, elem_idx). Seed with first element of each array. Each pop: append to result, push next element from same array."
+          answer="Min-heap of Reverse((val, arr_idx, elem_idx)). Seed with first element of each array. Each pop: append to result, push next element from same array."
         />
 
         <QuestionCard
@@ -508,11 +573,11 @@ Example: [[1,3,5],[2,4,6],[0,7,8]] → [0,1,2,3,4,5,6,7,8]`}
 Example: [[4,10,15,24,26],[0,9,12,20],[5,18,22,30]] → [20,24]`}
           brute={<>
             <BigOBadge time="O(N² · k)" space="O(N)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(N log k)" space="O(k)" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> At any moment, the heap holds exactly one element
               from each list — the current "window". The window is [heap_min, current_max].

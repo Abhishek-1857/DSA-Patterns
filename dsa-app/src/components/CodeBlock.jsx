@@ -1,13 +1,25 @@
 import { useState } from 'react'
 
 const KEYWORDS = new Set([
+  // JS/TS
   'function','return','if','else','for','while','const','let','var','class',
   'import','export','from','in','of','true','false','null','undefined','new',
-  'this','break','continue','def','and','or','not','range','len','append',
-  'print','elif','pass','yield','async','await','try','except','finally',
-  'throw','catch','switch','case','default','do','typeof','instanceof',
-  'extends','super','static','self','None','True','False',
-  'with','as','del','raise','is','lambda','assert','global','nonlocal',
+  'this','break','continue','async','await','try','catch','finally',
+  'throw','switch','case','default','do','typeof','instanceof',
+  'extends','super','static',
+  // Python
+  'def','and','or','not','range','len','append','print','elif','pass',
+  'yield','except','with','as','del','raise','is','lambda','assert',
+  'global','nonlocal','self','None','True','False',
+  // Rust
+  'fn','let','mut','pub','use','mod','struct','enum','impl','trait',
+  'where','type','const','static','extern','unsafe','move','ref','dyn',
+  'box','loop','match','if','else','while','for','in','return','break',
+  'continue','true','false','self','Self','super','crate','as','use',
+  'impl','pub','fn','struct','enum','trait','type','where','mod',
+  'Vec','HashMap','HashSet','String','Option','Result','Some','None',
+  'Ok','Err','usize','i32','i64','u32','u64','f32','f64','bool','char',
+  'str','i8','u8','i16','u16','i128','u128','isize',
 ])
 
 function tokenize(code) {

@@ -69,238 +69,326 @@ IN BOTH CASES: each element is pushed once and popped once → O(n) total
 `
 
 // ── Q1: Next Greater Element ───────────────────────────────────────────────
-const q1Brute = `# Brute: for each element, scan right to find next greater — O(n^2)
-def next_greater_element_brute(nums1, nums2):
-    result = []
-    for n in nums1:
-        idx = nums2.index(n)          # find n in nums2
-        found = -1
-        for i in range(idx + 1, len(nums2)):
-            if nums2[i] > n:
-                found = nums2[i]      # first element to the right that is greater
-                break
-        result.append(found)
-    return result`
+const q1Brute = `// Brute: for each element, scan right to find next greater — O(n^2)
+fn next_greater_element_brute(nums1: &[i32], nums2: &[i32]) -> Vec<i32> {
+    nums1.iter().map(|&n| {
+        let idx = nums2.iter().position(|&x| x == n).unwrap();  // find n in nums2
+        let mut found = -1;
+        for i in (idx + 1)..nums2.len() {
+            if nums2[i] > n {
+                found = nums2[i];  // first element to the right that is greater
+                break;
+            }
+        }
+        found
+    }).collect()
+}`
 
-const q1Opt = `def next_greater_element(nums1, nums2):
-    # build a map: num → its next greater element in nums2
-    stack = []                         # decreasing stack
-    nge = {}                           # next_greater_element map
+const q1Opt = `use std::collections::HashMap;
 
-    for num in nums2:
-        # current num is greater than top of stack → pop and record answer
-        while stack and stack[-1] < num:
-            smaller = stack.pop()
-            nge[smaller] = num         # 'num' is the NGE of 'smaller'
-        stack.append(num)
+fn next_greater_element(nums1: &[i32], nums2: &[i32]) -> Vec<i32> {
+    // build a map: num → its next greater element in nums2
+    let mut stack: Vec<i32> = Vec::new();  // decreasing stack of values
+    let mut nge: HashMap<i32, i32> = HashMap::new();  // next_greater_element map
 
-    # remaining elements in stack have no greater element to the right
-    for num in stack:
-        nge[num] = -1
+    for &num in nums2 {
+        // current num is greater than top of stack → pop and record answer
+        while let Some(&top) = stack.last() {
+            if top < num {
+                stack.pop();
+                nge.insert(top, num);  // 'num' is the NGE of 'top'
+            } else {
+                break;
+            }
+        }
+        stack.push(num);
+    }
 
-    return [nge[n] for n in nums1]     # look up each nums1 element in the map`
+    // remaining elements in stack have no greater element to the right
+    for num in stack {
+        nge.insert(num, -1);
+    }
+
+    nums1.iter().map(|n| *nge.get(n).unwrap_or(&-1)).collect()  // look up each nums1 element
+}`
 
 // ── Q2: Daily Temperatures ─────────────────────────────────────────────────
-const q2Brute = `# Brute: for each day, scan forward until finding a warmer day — O(n^2)
-def daily_temperatures_brute(temperatures):
-    n = len(temperatures)
-    result = [0] * n
-    for i in range(n):
-        for j in range(i + 1, n):
-            if temperatures[j] > temperatures[i]:
-                result[i] = j - i      # days to wait
-                break                  # found the first warmer day, stop
-    return result`
+const q2Brute = `// Brute: for each day, scan forward until finding a warmer day — O(n^2)
+fn daily_temperatures_brute(temperatures: &[i32]) -> Vec<i32> {
+    let n = temperatures.len();
+    let mut result = vec![0i32; n];
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if temperatures[j] > temperatures[i] {
+                result[i] = (j - i) as i32;  // days to wait
+                break;                        // found the first warmer day, stop
+            }
+        }
+    }
+    result
+}`
 
-const q2Opt = `def daily_temperatures(temperatures):
-    n = len(temperatures)
-    result = [0] * n
-    stack = []                         # stores INDICES (not values) in decreasing order of temperature
+const q2Opt = `fn daily_temperatures(temperatures: &[i32]) -> Vec<i32> {
+    let n = temperatures.len();
+    let mut result = vec![0i32; n];
+    let mut stack: Vec<usize> = Vec::new();  // stores INDICES (not values) in decreasing order of temperature
 
-    for i, temp in enumerate(temperatures):
-        # current temp is warmer than the day at the top of the stack
-        while stack and temperatures[stack[-1]] < temp:
-            prev_idx = stack.pop()
-            result[prev_idx] = i - prev_idx   # days waited = today's index - that day's index
-        stack.append(i)                # push today's index
+    for i in 0..n {
+        // current temp is warmer than the day at the top of the stack
+        while let Some(&top) = stack.last() {
+            if temperatures[top] < temperatures[i] {
+                stack.pop();
+                result[top] = (i - top) as i32;  // days waited = today's index - that day's index
+            } else {
+                break;
+            }
+        }
+        stack.push(i);  // push today's index
+    }
 
-    # days left in stack never got a warmer day → result stays 0 (default)
-    return result`
+    // days left in stack never got a warmer day → result stays 0 (default)
+    result
+}`
 
 // ── Q3: Largest Rectangle in Histogram ────────────────────────────────────
-const q3Brute = `# Brute: for each bar, expand left and right as far as height allows — O(n^2)
-def largest_rectangle_brute(heights):
-    n = len(heights)
-    max_area = 0
-    for i in range(n):
-        min_height = heights[i]
-        for j in range(i, n):
-            min_height = min(min_height, heights[j])   # shrink to the shortest bar
-            area = min_height * (j - i + 1)
-            max_area = max(max_area, area)
-    return max_area`
+const q3Brute = `// Brute: for each bar, expand left and right as far as height allows — O(n^2)
+fn largest_rectangle_brute(heights: &[i32]) -> i32 {
+    let n = heights.len();
+    let mut max_area = 0i32;
+    for i in 0..n {
+        let mut min_height = heights[i];
+        for j in i..n {
+            min_height = min_height.min(heights[j]);  // shrink to the shortest bar
+            let area = min_height * (j - i + 1) as i32;
+            max_area = max_area.max(area);
+        }
+    }
+    max_area
+}`
 
-const q3Opt = `def largest_rectangle_in_histogram(heights):
-    stack = []                         # increasing stack of indices
-    max_area = 0
-    heights = heights + [0]            # sentinel: force all bars to be popped at the end
+const q3Opt = `fn largest_rectangle_in_histogram(heights: &[i32]) -> i32 {
+    let mut stack: Vec<usize> = Vec::new();  // increasing stack of indices
+    let mut max_area = 0i32;
+    let mut heights = heights.to_vec();
+    heights.push(0);  // sentinel: force all bars to be popped at the end
 
-    for i, h in enumerate(heights):
-        # current bar is shorter → pop taller bars and compute their max area
-        while stack and heights[stack[-1]] > h:
-            height = heights[stack.pop()]         # height of the popped bar
-            # width: from current position back to the new stack top
-            width = i if not stack else i - stack[-1] - 1
-            max_area = max(max_area, height * width)
-        stack.append(i)
+    for i in 0..heights.len() {
+        // current bar is shorter → pop taller bars and compute their max area
+        while let Some(&top) = stack.last() {
+            if heights[top] > heights[i] {
+                stack.pop();
+                let height = heights[top];           // height of the popped bar
+                // width: from current position back to the new stack top
+                let width = if stack.is_empty() { i } else { i - stack.last().unwrap() - 1 };
+                max_area = max_area.max(height * width as i32);
+            } else {
+                break;
+            }
+        }
+        stack.push(i);
+    }
 
-    return max_area`
+    max_area
+}`
 
 // ── Q4: Trapping Rain Water ────────────────────────────────────────────────
-const q4Brute = `# Brute: for each position, find max height to left and right — O(n^2)
-def trap_brute(height):
-    n = len(height)
-    total = 0
-    for i in range(1, n - 1):
-        left_max  = max(height[:i+1])    # tallest wall on the left
-        right_max = max(height[i:])      # tallest wall on the right
-        # water at position i = min of both walls - ground level
-        water = min(left_max, right_max) - height[i]
-        total += max(0, water)
-    return total`
+const q4Brute = `// Brute: for each position, find max height to left and right — O(n^2)
+fn trap_brute(height: &[i32]) -> i32 {
+    let n = height.len();
+    let mut total = 0i32;
+    for i in 1..(n - 1) {
+        let left_max  = height[..=i].iter().copied().max().unwrap_or(0);  // tallest wall on the left
+        let right_max = height[i..].iter().copied().max().unwrap_or(0);   // tallest wall on the right
+        // water at position i = min of both walls - ground level
+        let water = left_max.min(right_max) - height[i];
+        total += water.max(0);
+    }
+    total
+}`
 
-const q4Opt = `def trap(height):
-    stack = []                         # decreasing stack of indices
-    total = 0
+const q4Opt = `fn trap(height: &[i32]) -> i32 {
+    let mut stack: Vec<usize> = Vec::new();  // decreasing stack of indices
+    let mut total = 0i32;
 
-    for i, h in enumerate(height):
-        # current bar is taller than stack top → water may be trapped
-        while stack and height[stack[-1]] < h:
-            bottom = stack.pop()       # the "valley floor" between two walls
-            if not stack:
-                break                  # no left wall → no water can be trapped
-            left_wall  = stack[-1]
-            right_wall = i
-            # water trapped in this "bucket":
-            width  = right_wall - left_wall - 1
-            water_height = min(height[left_wall], height[right_wall]) - height[bottom]
-            total += width * water_height
-        stack.append(i)
+    for i in 0..height.len() {
+        // current bar is taller than stack top → water may be trapped
+        while let Some(&bottom) = stack.last() {
+            if height[bottom] < height[i] {
+                stack.pop();               // the "valley floor" between two walls
+                if stack.is_empty() {
+                    break;                 // no left wall → no water can be trapped
+                }
+                let left_wall  = *stack.last().unwrap();
+                let right_wall = i;
+                // water trapped in this "bucket":
+                let width        = (right_wall - left_wall - 1) as i32;
+                let water_height = height[left_wall].min(height[right_wall]) - height[bottom];
+                total += width * water_height;
+            } else {
+                break;
+            }
+        }
+        stack.push(i);
+    }
 
-    return total`
+    total
+}`
 
 // ── Q5: Sum of Subarray Minimums ───────────────────────────────────────────
-const q5Brute = `# Brute: for every subarray, find the minimum — O(n^3)
-def sum_subarray_mins_brute(arr):
-    MOD = 10**9 + 7
-    total = 0
-    n = len(arr)
-    for i in range(n):
-        for j in range(i, n):
-            total += min(arr[i:j+1])   # min of each subarray
-    return total % MOD`
+const q5Brute = `// Brute: for every subarray, find the minimum — O(n^3)
+fn sum_subarray_mins_brute(arr: &[i32]) -> i32 {
+    const MOD: i64 = 1_000_000_007;
+    let n = arr.len();
+    let mut total: i64 = 0;
+    for i in 0..n {
+        for j in i..n {
+            let min_val = arr[i..=j].iter().copied().min().unwrap_or(0);  // min of each subarray
+            total += min_val as i64;
+        }
+    }
+    (total % MOD) as i32
+}`
 
-const q5Opt = `def sum_subarray_mins(arr):
-    MOD = 10**9 + 7
-    n = len(arr)
-    total = 0
-    stack = []                         # monotonic increasing stack of indices
+const q5Opt = `fn sum_subarray_mins(arr: &[i32]) -> i32 {
+    const MOD: i64 = 1_000_000_007;
+    let mut total: i64 = 0;
+    let mut stack: Vec<usize> = Vec::new();  // monotonic increasing stack of indices
 
-    # For each element arr[i], count subarrays where arr[i] is the minimum.
-    # arr[i] is the min of subarrays between its "previous smaller" and "next smaller" neighbors.
-    # Use a sentinel 0 at start and end to simplify boundary handling.
-    arr = [0] + arr + [0]
+    // For each element arr[i], count subarrays where arr[i] is the minimum.
+    // arr[i] is the min of subarrays between its "previous smaller" and "next smaller" neighbors.
+    // Use a sentinel 0 at start and end to simplify boundary handling.
+    let mut arr = arr.to_vec();
+    arr.insert(0, 0);
+    arr.push(0);
 
-    for i in range(len(arr)):
-        while stack and arr[stack[-1]] > arr[i]:
-            mid = stack.pop()
-            left  = stack[-1]          # index of previous smaller element
-            right = i                  # index of next smaller element
-            # number of subarrays where arr[mid] is the minimum:
-            left_count  = mid - left   # subarrays starting after 'left'
-            right_count = right - mid  # subarrays ending before 'right'
-            total += arr[mid] * left_count * right_count
-        stack.append(i)
+    for i in 0..arr.len() {
+        while let Some(&mid) = stack.last() {
+            if arr[mid] > arr[i] {
+                stack.pop();
+                let left  = *stack.last().unwrap();  // index of previous smaller element
+                let right = i;                        // index of next smaller element
+                // number of subarrays where arr[mid] is the minimum:
+                let left_count  = (mid - left) as i64;   // subarrays starting after 'left'
+                let right_count = (right - mid) as i64;  // subarrays ending before 'right'
+                total += arr[mid] as i64 * left_count * right_count;
+            } else {
+                break;
+            }
+        }
+        stack.push(i);
+    }
 
-    return total % MOD`
+    (total % MOD) as i32
+}`
 
 // ── PRACTICE answers ───────────────────────────────────────────────────────
-const pq1Code = `# Next Greater Element II — circular array, use modulo trick
-def next_greater_elements_ii(nums):
-    n = len(nums)
-    result = [-1] * n
-    stack = []                         # decreasing stack of indices
+const pq1Code = `// Next Greater Element II — circular array, use modulo trick
+fn next_greater_elements_ii(nums: &[i32]) -> Vec<i32> {
+    let n = nums.len();
+    let mut result = vec![-1i32; n];
+    let mut stack: Vec<usize> = Vec::new();  // decreasing stack of indices
 
-    # iterate TWICE to simulate circular behavior
-    for i in range(2 * n):
-        idx = i % n                    # wrap around with modulo
-        while stack and nums[stack[-1]] < nums[idx]:
-            popped = stack.pop()
-            result[popped] = nums[idx] # current element is NGE for the popped index
-        if i < n:
-            stack.append(idx)          # only push indices from the first pass
-    return result`
+    // iterate TWICE to simulate circular behavior
+    for i in 0..(2 * n) {
+        let idx = i % n;  // wrap around with modulo
+        while let Some(&top) = stack.last() {
+            if nums[top] < nums[idx] {
+                stack.pop();
+                result[top] = nums[idx];  // current element is NGE for the popped index
+            } else {
+                break;
+            }
+        }
+        if i < n {
+            stack.push(idx);  // only push indices from the first pass
+        }
+    }
+    result
+}`
 
-const pq2Code = `# Remove K Digits — remove k digits to make smallest possible number
-def remove_k_digits(num, k):
-    stack = []                         # increasing stack (we want smallest digits first)
-    for digit in num:
-        # if current digit is smaller than top, pop the top (it makes number larger)
-        while k and stack and stack[-1] > digit:
-            stack.pop()
-            k -= 1                     # used one removal
-        stack.append(digit)
-    # if we still have removals left, remove from the end (largest digits are at end)
-    result = stack[:len(stack)-k]
-    # strip leading zeros
-    return ''.join(result).lstrip('0') or '0'`
+const pq2Code = `// Remove K Digits — remove k digits to make smallest possible number
+fn remove_k_digits(num: &str, mut k: usize) -> String {
+    let mut stack: Vec<char> = Vec::new();  // increasing stack (we want smallest digits first)
+    for digit in num.chars() {
+        // if current digit is smaller than top, pop the top (it makes number larger)
+        while k > 0 && stack.last().map_or(false, |&top| top > digit) {
+            stack.pop();
+            k -= 1;  // used one removal
+        }
+        stack.push(digit);
+    }
+    // if we still have removals left, remove from the end (largest digits are at end)
+    let trimmed: String = stack[..stack.len() - k].iter().collect();
+    // strip leading zeros
+    let stripped = trimmed.trim_start_matches('0');
+    if stripped.is_empty() { "0".to_string() } else { stripped.to_string() }
+}`
 
-const pq3Code = `# 132 Pattern — find i<j<k with nums[i] < nums[k] < nums[j]
-def find132pattern(nums):
-    stack = []                         # decreasing stack
-    k_val = float('-inf')              # nums[k]: the "3" in 132, tracked as second-largest popped
+const pq3Code = `// 132 Pattern — find i<j<k with nums[i] < nums[k] < nums[j]
+fn find132pattern(nums: &[i32]) -> bool {
+    let mut stack: Vec<i32> = Vec::new();  // decreasing stack
+    let mut k_val = i32::MIN;             // nums[k]: the "3" in 132, tracked as second-largest popped
 
-    # iterate RIGHT TO LEFT
-    for num in reversed(nums):
-        if num < k_val:
-            return True                # found nums[i] < k_val (which is < some earlier nums[j])
-        while stack and stack[-1] < num:
-            k_val = stack.pop()        # this popped value can be our "2" (nums[k])
-        stack.append(num)
-    return False`
+    // iterate RIGHT TO LEFT
+    for &num in nums.iter().rev() {
+        if num < k_val {
+            return true;  // found nums[i] < k_val (which is < some earlier nums[j])
+        }
+        while stack.last().map_or(false, |&top| top < num) {
+            k_val = stack.pop().unwrap();  // this popped value can be our "2" (nums[k])
+        }
+        stack.push(num);
+    }
+    false
+}`
 
-const pq4Code = `# Maximum Width Ramp — find max j-i where nums[i] <= nums[j]
-def max_width_ramp(nums):
-    n = len(nums)
-    # build a decreasing stack of indices (candidates for i)
-    stack = []
-    for i in range(n):
-        if not stack or nums[stack[-1]] > nums[i]:
-            stack.append(i)            # only push if strictly smaller (potential left endpoint)
+const pq4Code = `// Maximum Width Ramp — find max j-i where nums[i] <= nums[j]
+fn max_width_ramp(nums: &[i32]) -> i32 {
+    let n = nums.len();
+    // build a decreasing stack of indices (candidates for i)
+    let mut stack: Vec<usize> = Vec::new();
+    for i in 0..n {
+        if stack.is_empty() || nums[*stack.last().unwrap()] > nums[i] {
+            stack.push(i);  // only push if strictly smaller (potential left endpoint)
+        }
+    }
 
-    # scan from right: find the rightmost j that pairs with each stack element
-    max_width = 0
-    for j in range(n - 1, -1, -1):
-        while stack and nums[stack[-1]] <= nums[j]:
-            max_width = max(max_width, j - stack.pop())
-        if not stack:
-            break                      # all candidates exhausted
-    return max_width`
+    // scan from right: find the rightmost j that pairs with each stack element
+    let mut max_width = 0i32;
+    for j in (0..n).rev() {
+        while stack.last().map_or(false, |&top| nums[top] <= nums[j]) {
+            let top = stack.pop().unwrap();
+            max_width = max_width.max((j - top) as i32);
+        }
+        if stack.is_empty() {
+            break;  // all candidates exhausted
+        }
+    }
+    max_width
+}`
 
-const pq5Code = `# Online Stock Span — count consecutive days with price <= today's price
-class StockSpanner:
-    def __init__(self):
-        # stack of (price, span) — decreasing in price
-        self.stack = []
+const pq5Code = `// Online Stock Span — count consecutive days with price <= today's price
+struct StockSpanner {
+    // stack of (price, span) — decreasing in price
+    stack: Vec<(i32, i32)>,
+}
 
-    def next(self, price):
-        span = 1                       # today counts as 1
-        # absorb all previous days with price <= today
-        while self.stack and self.stack[-1][0] <= price:
-            _, prev_span = self.stack.pop()
-            span += prev_span          # add that day's span (it accumulated previous days too)
-        self.stack.append((price, span))
-        return span`
+impl StockSpanner {
+    fn new() -> Self {
+        StockSpanner { stack: Vec::new() }
+    }
+
+    fn next(&mut self, price: i32) -> i32 {
+        let mut span = 1;  // today counts as 1
+        // absorb all previous days with price <= today
+        while self.stack.last().map_or(false, |&(p, _)| p <= price) {
+            let (_, prev_span) = self.stack.pop().unwrap();
+            span += prev_span;  // add that day's span (it accumulated previous days too)
+        }
+        self.stack.push((price, span));
+        span
+    }
+}`
 
 export default function MonotonicStackContent() {
   return (
@@ -344,11 +432,11 @@ export default function MonotonicStackContent() {
 Example: nums1=[4,1,2], nums2=[1,3,4,2] → [-1,3,-1]`}
           brute={<>
             <BigOBadge time="O(m·n)" space="O(1)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(m+n)" space="O(n)" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Process nums2 once with a monotonic stack to build
               an NGE map, then look up each nums1 element. The stack stays decreasing: when
@@ -372,11 +460,11 @@ Example: nums1=[4,1,2], nums2=[1,3,4,2] → [-1,3,-1]`}
 Example: [73,74,75,71,69,72,76,73] → [1,1,4,2,1,1,0,0]`}
           brute={<>
             <BigOBadge time="O(n²)" space="O(1)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Store <em>indices</em> in the stack, not values.
               When today's temperature is warmer than the temperature at the stack top's index,
@@ -386,7 +474,7 @@ Example: [73,74,75,71,69,72,76,73] → [1,1,4,2,1,1,0,0]`}
             <Callout type="danger">
               <strong>Common mistake:</strong> Pushing temperatures instead of indices.
               You need indices to compute the distance. Always push indices; access values
-              via <code>temperatures[stack[-1]]</code>.
+              via <code>temperatures[stack.last()]</code>.
             </Callout>
           </>}
           answer="Decreasing stack of indices. When temperatures[i] > temperatures[stack top]: pop, answer[top] = i - top. Push i. Remaining stack → answer stays 0."
@@ -401,11 +489,11 @@ Example: [73,74,75,71,69,72,76,73] → [1,1,4,2,1,1,0,0]`}
 Example: heights=[2,1,5,6,2,3] → 10`}
           brute={<>
             <BigOBadge time="O(n²)" space="O(1)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Use an <em>increasing</em> stack (for next smaller
               element). When bar i is shorter than the stack top, the top bar can no longer
@@ -414,8 +502,8 @@ Example: heights=[2,1,5,6,2,3] → 10`}
               at the end to flush everything out of the stack.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Computing width as <code>i - stack[-1]</code>
-              after popping. The correct width is <code>i - stack[-1] - 1</code> if the stack
+              <strong>Common mistake:</strong> Computing width as <code>i - stack.last()</code>
+              after popping. The correct width is <code>i - stack.last() - 1</code> if the stack
               is non-empty (the new top is the left boundary, exclusive). If the stack is
               empty after popping, width = i (the bar extends all the way to index 0).
             </Callout>
@@ -432,11 +520,11 @@ Example: heights=[2,1,5,6,2,3] → 10`}
 Example: [0,1,0,2,1,0,1,3,2,1,2,1] → 6`}
           brute={<>
             <BigOBadge time="O(n²)" space="O(1)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Think in terms of "buckets". A valley between two
               taller bars traps water. Use a decreasing stack: when the current bar is taller
@@ -447,7 +535,7 @@ Example: [0,1,0,2,1,0,1,3,2,1,2,1] → 6`}
             <Callout type="danger">
               <strong>Common mistake:</strong> Popping but then finding the stack is now empty —
               that means there's no left wall, so no water can be trapped for this valley.
-              Always check <code>if not stack: break</code> after popping.
+              Always check <code>if stack.is_empty() {"{ break; }"}</code> after popping.
             </Callout>
           </>}
           answer="Decreasing stack. When height[i] > height[stack top]: pop the valley floor, compute water = width * (min(left_wall, right_wall) - floor). Add to total."
@@ -462,11 +550,11 @@ Example: [0,1,0,2,1,0,1,3,2,1,2,1] → 6`}
 Example: arr=[3,1,2,4] → 17  (mins: 3,1,1,1,1,2,1,2,1,4 = 17)`}
           brute={<>
             <BigOBadge time="O(n³)" space="O(1)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Instead of finding the minimum of each subarray,
               ask: "how many subarrays have this element as their minimum?" For element at

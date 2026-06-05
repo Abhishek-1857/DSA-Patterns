@@ -67,279 +67,408 @@ KEY: pass (target - node.val) down to children recursively
      when you hit a LEAF and remaining == 0, you've found a valid path
 `
 
-const nodeClass = `# TreeNode used in all problems
-class TreeNode:
-    def __init__(self, val=0, left=None, right=None):
-        self.val = val
-        self.left = left
-        self.right = right`
+const nodeClass = `// TreeNode used in all problems
+#[derive(Debug)]
+struct TreeNode {
+    val: i32,
+    left: Option<Box<TreeNode>>,
+    right: Option<Box<TreeNode>>,
+}`
 
 // ── Q1: Path Sum ──────────────────────────────────────────────────────────
-const q1Brute = `# Brute: find ALL paths, check if any matches target
-def has_path_sum_brute(root, target):
-    def all_paths(node):
-        if not node:
-            return []
-        if not node.left and not node.right:
-            return [[node.val]]       # leaf → one path containing just this node
-        paths = []
-        for p in all_paths(node.left):
-            paths.append([node.val] + p)
-        for p in all_paths(node.right):
-            paths.append([node.val] + p)
-        return paths
-    return any(sum(p) == target for p in all_paths(root))`
+const q1Brute = `// Brute: find ALL paths, check if any matches target
+fn all_paths(node: &Option<Box<TreeNode>>) -> Vec<Vec<i32>> {
+    match node {
+        None => vec![],
+        Some(n) => {
+            if n.left.is_none() && n.right.is_none() {
+                return vec![vec![n.val]];  // leaf → one path containing just this node
+            }
+            let mut paths = Vec::new();
+            for p in all_paths(&n.left).into_iter().chain(all_paths(&n.right)) {
+                let mut path = vec![n.val];
+                path.extend(p);
+                paths.push(path);
+            }
+            paths
+        }
+    }
+}
 
-const q1Opt = `def has_path_sum(root, target):
-    if not root:
-        return False                   # empty tree → no path
-    # subtract current node from target as we go deeper
-    remaining = target - root.val
-    # reached a leaf — did we hit exactly 0 remaining?
-    if not root.left and not root.right:
-        return remaining == 0
-    # try left subtree OR right subtree
-    return (has_path_sum(root.left, remaining) or
-            has_path_sum(root.right, remaining))`
+fn has_path_sum_brute(root: &Option<Box<TreeNode>>, target: i32) -> bool {
+    all_paths(root).iter().any(|p| p.iter().sum::<i32>() == target)
+}`
+
+const q1Opt = `fn has_path_sum(root: &Option<Box<TreeNode>>, target: i32) -> bool {
+    match root {
+        None => false,                    // empty tree → no path
+        Some(node) => {
+            // subtract current node from target as we go deeper
+            let remaining = target - node.val;
+            // reached a leaf — did we hit exactly 0 remaining?
+            if node.left.is_none() && node.right.is_none() {
+                return remaining == 0;
+            }
+            // try left subtree OR right subtree
+            has_path_sum(&node.left, remaining) || has_path_sum(&node.right, remaining)
+        }
+    }
+}`
 
 // ── Q2: All Paths for a Sum ───────────────────────────────────────────────
-const q2Brute = `# Brute: find all paths first, filter by sum
-def find_all_paths_brute(root, target):
-    def all_paths(node):
-        if not node:
-            return []
-        if not node.left and not node.right:
-            return [[node.val]]
-        result = []
-        for p in all_paths(node.left) + all_paths(node.right):
-            result.append([node.val] + p)   # prepend current node
-        return result
-    return [p for p in all_paths(root) if sum(p) == target]`
+const q2Brute = `// Brute: find all paths first, filter by sum
+fn all_paths(node: &Option<Box<TreeNode>>) -> Vec<Vec<i32>> {
+    match node {
+        None => vec![],
+        Some(n) => {
+            if n.left.is_none() && n.right.is_none() {
+                return vec![vec![n.val]];
+            }
+            let mut result = Vec::new();
+            for p in all_paths(&n.left).into_iter().chain(all_paths(&n.right)) {
+                let mut path = vec![n.val];   // prepend current node
+                path.extend(p);
+                result.push(path);
+            }
+            result
+        }
+    }
+}
 
-const q2Opt = `def find_all_paths(root, target):
-    result = []
+fn find_all_paths_brute(root: &Option<Box<TreeNode>>, target: i32) -> Vec<Vec<i32>> {
+    all_paths(root)
+        .into_iter()
+        .filter(|p| p.iter().sum::<i32>() == target)
+        .collect()
+}`
 
-    def dfs(node, remaining, current_path):
-        if not node:
-            return
-        current_path.append(node.val)    # add this node to our running path
-        remaining -= node.val
-        # if leaf AND remaining hit zero → valid path!
-        if not node.left and not node.right and remaining == 0:
-            result.append(list(current_path))  # copy — list is mutable!
-        else:
-            dfs(node.left, remaining, current_path)   # explore left
-            dfs(node.right, remaining, current_path)  # explore right
-        # BACKTRACK: remove this node before returning to parent
-        current_path.pop()
+const q2Opt = `fn find_all_paths(root: &Option<Box<TreeNode>>, target: i32) -> Vec<Vec<i32>> {
+    let mut result: Vec<Vec<i32>> = Vec::new();
+    let mut path: Vec<i32> = Vec::new();
+    dfs(root, target, &mut path, &mut result);
+    result
+}
 
-    dfs(root, target, [])
-    return result`
+fn dfs(
+    node: &Option<Box<TreeNode>>,
+    remaining: i32,
+    path: &mut Vec<i32>,
+    result: &mut Vec<Vec<i32>>,
+) {
+    if let Some(n) = node {
+        path.push(n.val);              // add this node to our running path
+        let remaining = remaining - n.val;
+        // if leaf AND remaining hit zero → valid path!
+        if n.left.is_none() && n.right.is_none() && remaining == 0 {
+            result.push(path.clone()); // clone — Vec is owned, must copy explicitly
+        } else {
+            dfs(&n.left, remaining, path, result);   // explore left
+            dfs(&n.right, remaining, path, result);  // explore right
+        }
+        path.pop();                    // BACKTRACK: remove this node before returning to parent
+    }
+}`
 
 // ── Q3: Sum of Path Numbers ───────────────────────────────────────────────
-const q3Brute = `# Brute: collect all root-to-leaf path strings, convert to numbers, sum
-def sum_numbers_brute(root):
-    def all_paths(node):
-        if not node:
-            return []
-        if not node.left and not node.right:
-            return [str(node.val)]
-        result = []
-        for p in all_paths(node.left) + all_paths(node.right):
-            result.append(str(node.val) + p)
-        return result
-    return sum(int(p) for p in all_paths(root))`
+const q3Brute = `// Brute: collect all root-to-leaf path strings, convert to numbers, sum
+fn all_path_strings(node: &Option<Box<TreeNode>>) -> Vec<String> {
+    match node {
+        None => vec![],
+        Some(n) => {
+            if n.left.is_none() && n.right.is_none() {
+                return vec![n.val.to_string()];
+            }
+            let mut result = Vec::new();
+            for p in all_path_strings(&n.left).into_iter().chain(all_path_strings(&n.right)) {
+                result.push(format!("{}{}", n.val, p));
+            }
+            result
+        }
+    }
+}
 
-const q3Opt = `def sum_numbers(root):
-    def dfs(node, current_number):
-        if not node:
-            return 0
-        # shift current_number left one digit and add this node's value
-        # e.g. path 1→2→3: at node 3, current_number = 1*100 + 2*10 + 3 = 123
-        current_number = current_number * 10 + node.val
-        # leaf → this is a complete number, return it
-        if not node.left and not node.right:
-            return current_number
-        # recurse: sum up numbers from left and right subtrees
-        return dfs(node.left, current_number) + dfs(node.right, current_number)
+fn sum_numbers_brute(root: &Option<Box<TreeNode>>) -> i32 {
+    all_path_strings(root)
+        .iter()
+        .map(|s| s.parse::<i32>().unwrap())
+        .sum()
+}`
 
-    return dfs(root, 0)`
+const q3Opt = `fn sum_numbers(root: &Option<Box<TreeNode>>) -> i32 {
+    dfs(root, 0)
+}
+
+fn dfs(node: &Option<Box<TreeNode>>, current_number: i32) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => {
+            // shift current_number left one digit and add this node's value
+            // e.g. path 1→2→3: at node 3, current_number = 1*100 + 2*10 + 3 = 123
+            let current_number = current_number * 10 + n.val;
+            // leaf → this is a complete number, return it
+            if n.left.is_none() && n.right.is_none() {
+                return current_number;
+            }
+            // recurse: sum up numbers from left and right subtrees
+            dfs(&n.left, current_number) + dfs(&n.right, current_number)
+        }
+    }
+}`
 
 // ── Q4: Path with Maximum Sum ─────────────────────────────────────────────
-const q4Brute = `# Brute: find all root-to-leaf paths, return max sum
-def max_path_sum_root_to_leaf_brute(root):
-    def all_paths(node):
-        if not node:
-            return []
-        if not node.left and not node.right:
-            return [[node.val]]
-        result = []
-        for p in all_paths(node.left) + all_paths(node.right):
-            result.append([node.val] + p)
-        return result
-    paths = all_paths(root)
-    return max(sum(p) for p in paths) if paths else 0`
+const q4Brute = `// Brute: find all root-to-leaf paths, return max sum
+fn all_paths(node: &Option<Box<TreeNode>>) -> Vec<Vec<i32>> {
+    match node {
+        None => vec![],
+        Some(n) => {
+            if n.left.is_none() && n.right.is_none() {
+                return vec![vec![n.val]];
+            }
+            let mut result = Vec::new();
+            for p in all_paths(&n.left).into_iter().chain(all_paths(&n.right)) {
+                let mut path = vec![n.val];
+                path.extend(p);
+                result.push(path);
+            }
+            result
+        }
+    }
+}
 
-const q4Opt = `def max_path_sum_root_to_leaf(root):
-    def dfs(node):
-        if not node:
-            return float('-inf')      # no node → not a valid path
-        if not node.left and not node.right:
-            return node.val           # leaf → path is just this node
-        # take the better of left or right subtree, add current node
-        left_max = dfs(node.left)
-        right_max = dfs(node.right)
-        # if one child is missing, don't pick float('-inf')
-        if not node.left:
-            return node.val + right_max
-        if not node.right:
-            return node.val + left_max
-        return node.val + max(left_max, right_max)
+fn max_path_sum_root_to_leaf_brute(root: &Option<Box<TreeNode>>) -> i32 {
+    let paths = all_paths(root);
+    if paths.is_empty() {
+        return 0;
+    }
+    paths.iter().map(|p| p.iter().sum::<i32>()).max().unwrap()
+}`
 
-    return dfs(root)`
+const q4Opt = `fn max_path_sum_root_to_leaf(root: &Option<Box<TreeNode>>) -> i32 {
+    dfs(root)
+}
+
+fn dfs(node: &Option<Box<TreeNode>>) -> i32 {
+    match node {
+        None => i32::MIN,             // no node → not a valid path
+        Some(n) => {
+            if n.left.is_none() && n.right.is_none() {
+                return n.val;         // leaf → path is just this node
+            }
+            // take the better of left or right subtree, add current node
+            let left_max = dfs(&n.left);
+            let right_max = dfs(&n.right);
+            // if one child is missing, don't pick i32::MIN
+            if n.left.is_none() {
+                return n.val + right_max;
+            }
+            if n.right.is_none() {
+                return n.val + left_max;
+            }
+            n.val + left_max.max(right_max)
+        }
+    }
+}`
 
 // ── Q5: Diameter of Binary Tree ───────────────────────────────────────────
-const q5Brute = `# Brute: at every node, diameter through that node = left_height + right_height
-# O(n^2) because height() is called n times
-def diameter_of_binary_tree_brute(root):
-    def height(node):
-        if not node:
-            return 0
-        return 1 + max(height(node.left), height(node.right))
+const q5Brute = `// Brute: at every node, diameter through that node = left_height + right_height
+// O(n^2) because height() is called n times
+fn height(node: &Option<Box<TreeNode>>) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => 1 + height(&n.left).max(height(&n.right)),
+    }
+}
 
-    def diameter(node):
-        if not node:
-            return 0
-        # path through this node: go all the way left + all the way right
-        through_root = height(node.left) + height(node.right)
-        # or maybe the longest path is entirely in left or right subtree
-        return max(through_root, diameter(node.left), diameter(node.right))
+fn diameter(node: &Option<Box<TreeNode>>) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => {
+            // path through this node: go all the way left + all the way right
+            let through_root = height(&n.left) + height(&n.right);
+            // or maybe the longest path is entirely in left or right subtree
+            through_root.max(diameter(&n.left)).max(diameter(&n.right))
+        }
+    }
+}
 
-    return diameter(root)`
+fn diameter_of_binary_tree_brute(root: &Option<Box<TreeNode>>) -> i32 {
+    diameter(root)
+}`
 
-const q5Opt = `def diameter_of_binary_tree(root):
-    max_diameter = [0]   # use list so inner function can modify it
+const q5Opt = `fn diameter_of_binary_tree(root: &Option<Box<TreeNode>>) -> i32 {
+    let mut max_diameter = 0;
+    height(root, &mut max_diameter);
+    max_diameter
+}
 
-    def height(node):
-        if not node:
-            return 0
-        left_h = height(node.left)
-        right_h = height(node.right)
-        # the diameter THROUGH this node = edges going left + edges going right
-        max_diameter[0] = max(max_diameter[0], left_h + right_h)
-        # return height of this subtree to the parent
-        return 1 + max(left_h, right_h)
-
-    height(root)
-    return max_diameter[0]`
+fn height(node: &Option<Box<TreeNode>>, max_diameter: &mut i32) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => {
+            let left_h = height(&n.left, max_diameter);
+            let right_h = height(&n.right, max_diameter);
+            // the diameter THROUGH this node = edges going left + edges going right
+            *max_diameter = (*max_diameter).max(left_h + right_h);
+            // return height of this subtree to the parent
+            1 + left_h.max(right_h)
+        }
+    }
+}`
 
 // ── PRACTICE answers ──────────────────────────────────────────────────────
-const pq1Code = `# Count Paths for a Sum — paths don't have to start at root or end at leaf
-def path_sum_count(root, target):
-    def dfs(node, remaining):
-        if not node:
-            return 0
-        count = 0
-        if node.val == remaining:    # this node alone completes a path
-            count += 1
-        count += dfs(node.left, remaining - node.val)
-        count += dfs(node.right, remaining - node.val)
-        return count
+const pq1Code = `// Count Paths for a Sum — paths don't have to start at root or end at leaf
+fn path_sum_count(root: &Option<Box<TreeNode>>, target: i32) -> i32 {
+    traverse(root, target)
+}
 
-    # try starting a path at every single node
-    def traverse(node):
-        if not node:
-            return 0
-        # paths starting at this node + paths starting in left or right subtree
-        return dfs(node, target) + traverse(node.left) + traverse(node.right)
+// count paths starting exactly at 'node' that sum to remaining
+fn dfs(node: &Option<Box<TreeNode>>, remaining: i32) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => {
+            let mut count = 0;
+            if n.val == remaining {   // this node alone completes a path
+                count += 1;
+            }
+            count += dfs(&n.left, remaining - n.val);
+            count += dfs(&n.right, remaining - n.val);
+            count
+        }
+    }
+}
 
-    return traverse(root)`
+// try starting a path at every single node
+fn traverse(node: &Option<Box<TreeNode>>, target: i32) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => {
+            // paths starting at this node + paths starting in left or right subtree
+            dfs(node, target) + traverse(&n.left, target) + traverse(&n.right, target)
+        }
+    }
+}`
 
-const pq2Code = `# Tree Path Sum II — all paths (any start, any end) summing to target
-# Uses prefix sum technique for O(n) time
-def path_sum_all(root, target):
-    result = []
-    # current_path holds the nodes on the path from root to current node
-    def dfs(node, current_path, current_sum):
-        if not node:
-            return
-        current_path.append(node.val)
-        current_sum += node.val
-        # check all sub-paths ending at this node
-        path_sum = 0
-        for i in range(len(current_path) - 1, -1, -1):
-            path_sum += current_path[i]
-            if path_sum == target:
-                result.append(current_path[i:])  # found a valid sub-path
-        dfs(node.left, current_path, current_sum)
-        dfs(node.right, current_path, current_sum)
-        current_path.pop()   # backtrack
+const pq2Code = `// Tree Path Sum II — all paths (any start, any end) summing to target
+fn path_sum_all(root: &Option<Box<TreeNode>>, target: i32) -> Vec<Vec<i32>> {
+    let mut result: Vec<Vec<i32>> = Vec::new();
+    let mut current_path: Vec<i32> = Vec::new();
+    // current_path holds the nodes on the path from root to current node
+    dfs(root, target, &mut current_path, &mut result);
+    result
+}
 
-    dfs(root, [], 0)
-    return result`
+fn dfs(
+    node: &Option<Box<TreeNode>>,
+    target: i32,
+    current_path: &mut Vec<i32>,
+    result: &mut Vec<Vec<i32>>,
+) {
+    if let Some(n) = node {
+        current_path.push(n.val);
+        // check all sub-paths ending at this node
+        let mut path_sum = 0;
+        for i in (0..current_path.len()).rev() {
+            path_sum += current_path[i];
+            if path_sum == target {
+                result.push(current_path[i..].to_vec());  // found a valid sub-path
+            }
+        }
+        dfs(&n.left, target, current_path, result);
+        dfs(&n.right, target, current_path, result);
+        current_path.pop();   // backtrack
+    }
+}`
 
-const pq3Code = `# Flatten Binary Tree to Linked List — in-place, preorder
-def flatten(root):
-    def dfs(node):
-        if not node:
-            return None          # return None for the tail of an empty subtree
-        if not node.left and not node.right:
-            return node          # leaf: it is its own tail
-        # flatten left and right subtrees, get their tails
-        left_tail = dfs(node.left)
-        right_tail = dfs(node.right)
-        # if there's a left subtree, insert it between root and right subtree
-        if left_tail:
-            left_tail.next = node.right    # left tail points to old right subtree
-            node.right = node.left         # move left subtree to the right
-            node.left = None               # clear left pointer
-        # return the overall tail (right tail if it exists, else left tail)
-        return right_tail if right_tail else left_tail
+const pq3Code = `// Flatten Binary Tree to Linked List — in-place, preorder
+// Returns the tail of the flattened subtree
+fn flatten(root: &mut Option<Box<TreeNode>>) {
+    dfs(root);
+}
 
-    dfs(root)`
+fn dfs(node: &mut Option<Box<TreeNode>>) -> *mut Option<Box<TreeNode>> {
+    match node {
+        None => node as *mut _,             // return pointer to None for empty subtree
+        Some(n) => {
+            if n.left.is_none() && n.right.is_none() {
+                return node as *mut _;      // leaf: it is its own tail
+            }
+            // flatten left and right subtrees, get their tails
+            let left_tail = dfs(&mut n.left);
+            let right_tail = dfs(&mut n.right);
+            // if there's a left subtree, insert it between root and right subtree
+            if n.left.is_some() {
+                // left tail points to old right subtree
+                // then move left subtree to the right, clear left pointer
+                let old_right = n.right.take();
+                let left = n.left.take();
+                n.right = left;
+                // SAFETY: left_tail points into our owned tree, valid for this scope
+                unsafe { *left_tail = old_right; }
+            }
+            // return the overall tail (right tail if it exists, else left tail)
+            if unsafe { (*right_tail).is_some() } {
+                right_tail
+            } else {
+                left_tail
+            }
+        }
+    }
+}`
 
-const pq4Code = `# Path Sum III — count paths summing to target (any start/end node)
-# O(n) using prefix sums with a hashmap
-from collections import defaultdict
+const pq4Code = `// Path Sum III — count paths summing to target (any start/end node)
+// O(n) using prefix sums with a hashmap
+use std::collections::HashMap;
 
-def path_sum_iii(root, target):
-    count = [0]
-    # prefix_counts[s] = how many times we've seen prefix sum s on current path
-    prefix_counts = defaultdict(int)
-    prefix_counts[0] = 1         # empty path has sum 0
+fn path_sum_iii(root: &Option<Box<TreeNode>>, target: i32) -> i32 {
+    let mut count = 0;
+    // prefix_counts[s] = how many times we've seen prefix sum s on current path
+    let mut prefix_counts: HashMap<i32, i32> = HashMap::new();
+    prefix_counts.insert(0, 1);         // empty path has sum 0
 
-    def dfs(node, current_sum):
-        if not node:
-            return
-        current_sum += node.val
-        # how many prefixes can we remove to get a path summing to target?
-        count[0] += prefix_counts[current_sum - target]
-        prefix_counts[current_sum] += 1    # add this prefix to the map
-        dfs(node.left, current_sum)
-        dfs(node.right, current_sum)
-        prefix_counts[current_sum] -= 1    # backtrack: remove this prefix
+    dfs(root, target, 0, &mut prefix_counts, &mut count);
+    count
+}
 
-    dfs(root, 0)
-    return count[0]`
+fn dfs(
+    node: &Option<Box<TreeNode>>,
+    target: i32,
+    current_sum: i32,
+    prefix_counts: &mut HashMap<i32, i32>,
+    count: &mut i32,
+) {
+    if let Some(n) = node {
+        let current_sum = current_sum + n.val;
+        // how many prefixes can we remove to get a path summing to target?
+        *count += prefix_counts.get(&(current_sum - target)).copied().unwrap_or(0);
+        *prefix_counts.entry(current_sum).or_insert(0) += 1;   // add this prefix to the map
+        dfs(&n.left, target, current_sum, prefix_counts, count);
+        dfs(&n.right, target, current_sum, prefix_counts, count);
+        *prefix_counts.entry(current_sum).or_insert(0) -= 1;   // backtrack: remove this prefix
+    }
+}`
 
-const pq5Code = `# Binary Tree Maximum Path Sum — path can go through any nodes, any direction
-def max_path_sum(root):
-    max_sum = [float('-inf')]
+const pq5Code = `// Binary Tree Maximum Path Sum — path can go through any nodes, any direction
+fn max_path_sum(root: &Option<Box<TreeNode>>) -> i32 {
+    let mut max_sum = i32::MIN;
+    max_gain(root, &mut max_sum);
+    max_sum
+}
 
-    def max_gain(node):
-        if not node:
-            return 0
-        # only take positive contributions from children
-        left_gain = max(max_gain(node.left), 0)
-        right_gain = max(max_gain(node.right), 0)
-        # price of the path that PASSES THROUGH this node as the top
-        price_through = node.val + left_gain + right_gain
-        max_sum[0] = max(max_sum[0], price_through)   # update global max
-        # return max gain if we CONTINUE upward (can only go one direction)
-        return node.val + max(left_gain, right_gain)
-
-    max_gain(root)
-    return max_sum[0]`
+fn max_gain(node: &Option<Box<TreeNode>>, max_sum: &mut i32) -> i32 {
+    match node {
+        None => 0,
+        Some(n) => {
+            // only take positive contributions from children
+            let left_gain = max_gain(&n.left, max_sum).max(0);
+            let right_gain = max_gain(&n.right, max_sum).max(0);
+            // price of the path that PASSES THROUGH this node as the top
+            let price_through = n.val + left_gain + right_gain;
+            *max_sum = (*max_sum).max(price_through);  // update global max
+            // return max gain if we CONTINUE upward (can only go one direction)
+            n.val + left_gain.max(right_gain)
+        }
+    }
+}`
 
 export default function TreeDFSContent() {
   return (
@@ -373,8 +502,8 @@ export default function TreeDFSContent() {
         </Callout>
       </Sub>
 
-      <Sub title="TreeNode class (used in all problems)">
-        <CodeBlock code={nodeClass} lang="python" />
+      <Sub title="TreeNode struct (used in all problems)">
+        <CodeBlock code={nodeClass} lang="rust" />
       </Sub>
 
       <Sub title="Taught Questions">
@@ -396,12 +525,12 @@ Example: target=22
 → True (path: 5→4→11→2)`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
             <Callout type="warn">Collecting all paths wastes memory — you just need a yes/no answer.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(h)" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Pass <code>remaining = target - node.val</code>
               down to the children. At a leaf, if remaining equals 0, you've found a valid
@@ -425,23 +554,23 @@ Example: target=22
 Example: target=23, same tree → [[5,4,11,3],[5,8,4,5]] (or similar)`}
           brute={<>
             <BigOBadge time="O(n·h)" space="O(n·h)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n·h)" space="O(h)" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Use a <code>current_path</code> list that grows
-              as you go deeper and shrinks as you backtrack (<code>current_path.pop()</code>).
-              This one list tracks the current path without creating new lists at every node.
+              <strong>Aha moment:</strong> Use a <code>path</code> Vec that grows
+              as you go deeper and shrinks as you backtrack (<code>path.pop()</code>).
+              This one Vec tracks the current path without allocating at every node.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Appending <code>current_path</code> directly
-              to result — since it's a mutable list, you'll store a reference that changes.
-              Always append <code>list(current_path)</code> (a copy).
+              <strong>Common mistake:</strong> Pushing <code>path</code> directly
+              to result — since it's a mutable Vec, you'll store a reference that changes.
+              Always push <code>path.clone()</code> (a copy).
             </Callout>
           </>}
-          answer="DFS with current_path list and remaining. At leaf with remaining==0, append a COPY of current_path to result. Pop the current node on backtrack."
+          answer="DFS with path Vec and remaining. At leaf with remaining==0, push a CLONE of path to result. Pop the current node on backtrack."
         />
 
         <QuestionCard
@@ -457,14 +586,14 @@ Example:
 → 12 + 13 = 25`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(h)" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Instead of building a string and converting,
-              keep a running integer: <code>current_number = current_number * 10 + node.val</code>.
+              keep a running integer: <code>current_number = current_number * 10 + n.val</code>.
               Multiplying by 10 "shifts" the existing digits left to make room for the new digit.
             </Callout>
             <Callout type="danger">
@@ -473,7 +602,7 @@ Example:
               with one None child would count the leaf twice. Guard with the leaf check first.
             </Callout>
           </>}
-          answer="DFS passing current_number = current_number * 10 + node.val. At a leaf, return current_number. Otherwise return sum of left and right subtree results."
+          answer="DFS passing current_number = current_number * 10 + n.val. At a leaf, return current_number. Otherwise return sum of left and right subtree results."
         />
 
         <QuestionCard
@@ -491,19 +620,19 @@ Example:
 → max path is 1→2→5, sum = 8`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(h)" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Each call returns the max sum reachable from
               that node to a leaf. A node's contribution is its own value plus whichever
               child gives the bigger sum. This bubbles the best answer all the way up to root.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Returning <code>node.val + max(left, right)</code>
-              when one child is None — you'd pick <code>float('-inf')</code>. Use
+              <strong>Common mistake:</strong> Returning <code>n.val + left_max.max(right_max)</code>
+              when one child is None — you'd pick <code>i32::MIN</code>. Use
               explicit checks for missing children.
             </Callout>
           </>}
@@ -525,12 +654,12 @@ Example:
 → 3 (path: 4→2→1→3 or 5→2→1→3)`}
           brute={<>
             <BigOBadge time="O(n²)" space="O(h)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
             <Callout type="warn">Calling height() at every node means O(n) work per node = O(n²) total. We can do both in one pass.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(h)" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> At every node, the diameter <em>through that node</em>
               is <code>left_height + right_height</code>. While computing heights (bottom-up),
@@ -584,11 +713,11 @@ Example: target=8
 
 Example: target=12, tree above → [[7,5],[1,2,5,10-but-partial...]] (find all sub-paths)`}
           hints={[
-            "DFS keeping the current root-to-node path in a list. At each node, scan backward through the path checking all sub-paths ending at this node.",
-            "A sub-path from index i to current node = sum of current_path[i:].",
+            "DFS keeping the current root-to-node path in a Vec. At each node, scan backward through the path checking all sub-paths ending at this node.",
+            "A sub-path from index i to current node = sum of current_path[i..].",
             "Backtrack (pop) after returning from both children.",
           ]}
-          answer="DFS with current_path list. At each node, scan backwards through current_path summing values — whenever the sum hits target, record that subpath slice."
+          answer="DFS with current_path Vec. At each node, scan backwards through current_path summing values — whenever the sum hits target, record that subpath slice."
           answerCode={pq2Code}
         />
 
@@ -625,9 +754,9 @@ Example: same as Count Paths — but solve it in O(n) instead of O(n²).`}
           hints={[
             "Think prefix sums — the same trick from subarray sum problems.",
             "Track a running current_sum from root to the current node. A valid path ends here if (current_sum - target) was seen as a prefix sum earlier.",
-            "Use a hashmap counting how many times each prefix sum has appeared. Backtrack by decrementing the count when leaving a node.",
+            "Use a HashMap counting how many times each prefix sum has appeared. Backtrack by decrementing the count when leaving a node.",
           ]}
-          answer="DFS with prefix sum hashmap. count += prefix_counts[current_sum - target] at each node. Backtrack by decrementing prefix_counts[current_sum] after recursion."
+          answer="DFS with prefix sum HashMap. count += prefix_counts[current_sum - target] at each node. Backtrack by decrementing prefix_counts[current_sum] after recursion."
           answerCode={pq4Code}
         />
 

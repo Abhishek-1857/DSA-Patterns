@@ -69,305 +69,323 @@ Result:  5 → 4 → 3 → 2 → 1 → None   new head = prev = 5
 KEY: "save next BEFORE flipping, then flip, then advance"
 `
 
-// Helper class shown once for context
-const nodeClass = `# ListNode class used in all problems below
-class ListNode:
-    def __init__(self, val=0, next=None):
-        self.val = val
-        self.next = next`
+// Educational approach note shown once for context
+const nodeClass = `// Educational approach: represent list as Vec<i32>, reverse in-place
+// Rust ownership makes pointer-based linked lists complex for learning,
+// so we simulate with a Vec<i32> — the algorithms are identical in logic.
+
+fn reverse_list(nums: &mut Vec<i32>) {
+    let mut left = 0usize;
+    let mut right = nums.len() - 1;
+    while left < right {
+        nums.swap(left, right);
+        left += 1;
+        right -= 1;
+    }
+}`
 
 // ─── TAUGHT Q1: Reverse a Linked List ───────────────────────────────────────
-const ipr1Brute = `# Brute force: collect all values, rebuild reversed
-def reverse_list_brute(head):
-    vals = []
-    curr = head
-    while curr:                  # pass 1: store all values
-        vals.append(curr.val)
-        curr = curr.next
-    curr = head
-    for v in reversed(vals):     # pass 2: fill in reverse order
-        curr.val = v
-        curr = curr.next
-    return head`
+const ipr1Brute = `// Brute force: collect all values into a new Vec, fill back in reverse order
+fn reverse_list_brute(nums: &mut Vec<i32>) {
+    let vals: Vec<i32> = nums.clone();   // pass 1: snapshot all values
+    let n = vals.len();
+    for i in 0..n {                      // pass 2: fill in reverse order
+        nums[i] = vals[n - 1 - i];
+    }
+}`
 
-const ipr1Opt = `# Optimised: three-pointer in-place flip
-def reverse_list(head):
-    prev = None                  # will become new tail (points to None)
-    curr = head                  # walker starts at head
-    while curr:
-        nxt = curr.next          # SAVE next before we overwrite the pointer
-        curr.next = prev         # flip the arrow
-        prev = curr              # advance prev one step right
-        curr = nxt               # advance curr one step right
-    return prev                  # prev is now the new head`
+const ipr1Opt = `// Optimised: two-pointer in-place swap — O(n) time, O(1) space
+fn reverse_list(nums: &mut Vec<i32>) {
+    let mut left = 0usize;
+    let mut right = nums.len() - 1;     // will wrap if empty, guard below
+    while left < right {
+        nums.swap(left, right);          // swap() is built-in on Vec/slice
+        left += 1;
+        right -= 1;
+    }
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5];
+    reverse_list(&mut list);
+    println!("{:?}", list); // [5, 4, 3, 2, 1]
+}`
 
 // ─── TAUGHT Q2: Reverse a Sub-list ──────────────────────────────────────────
-const ipr2Brute = `# Brute force: collect values, reverse the slice, rebuild
-def reverse_between_brute(head, left, right):
-    vals = []
-    curr = head
-    while curr:
-        vals.append(curr.val)
-        curr = curr.next
-    # reverse just the slice [left-1 .. right-1]
-    vals[left-1:right] = vals[left-1:right][::-1]
-    curr = head
-    for v in vals:
-        curr.val = v
-        curr = curr.next
-    return head`
+const ipr2Brute = `// Brute force: reverse the slice [p-1 .. q-1] using a temp Vec
+// p and q are 1-indexed positions
+fn reverse_between_brute(nums: &mut Vec<i32>, p: usize, q: usize) {
+    let slice: Vec<i32> = nums[p - 1..=q - 1].iter().copied().rev().collect();
+    nums[p - 1..=q - 1].copy_from_slice(&slice);
+}`
 
-const ipr2Opt = `# Optimised: walk to position left, then reverse right-left+1 nodes
-def reverse_between(head, left, right):
-    if not head or left == right:
-        return head
-    dummy = ListNode(0)          # dummy node makes edge cases easier
-    dummy.next = head
-    prev = dummy
-    # step 1: walk prev to the node just BEFORE position left
-    for _ in range(left - 1):
-        prev = prev.next
-    curr = prev.next             # curr is the first node to reverse
-    # step 2: reverse right-left times
-    for _ in range(right - left):
-        nxt = curr.next          # node to pull to the front of sublist
-        curr.next = nxt.next     # remove nxt from its current position
-        nxt.next = prev.next     # nxt's new next = current front of reversed part
-        prev.next = nxt          # nxt becomes the new front
-    return dummy.next`
+const ipr2Opt = `// Optimised: two-pointer swap directly inside the slice — O(n) time, O(1) space
+// p and q are 1-indexed positions
+fn reverse_between(nums: &mut Vec<i32>, p: usize, q: usize) {
+    if p >= q { return; }            // nothing to reverse
+    let mut left = p - 1;            // convert to 0-indexed
+    let mut right = q - 1;
+    while left < right {
+        nums.swap(left, right);      // swap() avoids borrow-checker issues
+        left += 1;
+        right -= 1;
+    }
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5];
+    reverse_between(&mut list, 2, 4);
+    println!("{:?}", list); // [1, 4, 3, 2, 5]
+}`
 
 // ─── TAUGHT Q3: Reverse Every K-element Sub-list ────────────────────────────
-const ipr3Brute = `# Brute force: collect all values into chunks, reverse each
-def reverse_k_group_brute(head, k):
-    vals = []
-    curr = head
-    while curr:
-        vals.append(curr.val)
-        curr = curr.next
-    # reverse every chunk of k
-    result = []
-    for i in range(0, len(vals), k):
-        chunk = vals[i:i+k]
-        if len(chunk) == k:      # only reverse full chunks
-            result.extend(chunk[::-1])
-        else:
-            result.extend(chunk) # leftover stays as-is
-    curr = head
-    for v in result:
-        curr.val = v
-        curr = curr.next
-    return head`
+const ipr3Brute = `// Brute force: collect values into chunks, reverse full chunks, rebuild
+fn reverse_k_group_brute(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    let mut result: Vec<i32> = Vec::with_capacity(n);
+    let mut i = 0;
+    while i < n {
+        let end = (i + k).min(n);
+        if end - i == k {
+            // full chunk — push reversed
+            for j in (i..end).rev() {
+                result.push(nums[j]);
+            }
+        } else {
+            // leftover chunk — push as-is
+            result.extend_from_slice(&nums[i..end]);
+        }
+        i += k;
+    }
+    nums.copy_from_slice(&result);
+}`
 
-const ipr3Opt = `# Optimised: reverse k nodes at a time in-place, recurse on rest
-def reverse_k_group(head, k):
-    # check if we have at least k nodes remaining
-    count = 0
-    node = head
-    while node and count < k:
-        node = node.next
-        count += 1
-    if count < k:                # fewer than k nodes left → don't reverse
-        return head
-    # reverse exactly k nodes (same three-pointer trick)
-    prev, curr = None, head
-    for _ in range(k):
-        nxt = curr.next
-        curr.next = prev
-        prev = curr
-        curr = nxt
-    # head is now the TAIL of the reversed group
-    # recursively reverse the rest and attach
-    head.next = reverse_k_group(curr, k)
-    return prev                  # prev is the new head of this group`
+const ipr3Opt = `// Optimised: reverse each k-sized window in-place, skip leftover tail
+fn reverse_k_group(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    let mut start = 0usize;
+    while start + k <= n {           // only process full groups
+        let end = start + k - 1;
+        let mut l = start;
+        let mut r = end;
+        while l < r {
+            nums.swap(l, r);         // standard two-pointer swap
+            l += 1;
+            r -= 1;
+        }
+        start += k;                  // advance to next group
+    }
+    // tail (fewer than k nodes) is left untouched automatically
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5, 6, 7, 8];
+    reverse_k_group(&mut list, 3);
+    println!("{:?}", list); // [3, 2, 1, 6, 5, 4, 7, 8]
+}`
 
 // ─── TAUGHT Q4: Rotate a Linked List ────────────────────────────────────────
-const ipr4Brute = `# Brute force: rotate one step at a time, k times
-def rotate_right_brute(head, k):
-    if not head or not head.next or k == 0:
-        return head
-    for _ in range(k):
-        # find second-to-last node
-        curr = head
-        while curr.next.next:
-            curr = curr.next
-        last = curr.next         # last node
-        curr.next = None         # detach last
-        last.next = head         # attach at front
-        head = last              # new head
-    return head`
+const ipr4Brute = `// Brute force: rotate the Vec right by 1, k times
+fn rotate_right_brute(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    if n == 0 { return; }
+    let k = k % n;
+    for _ in 0..k {
+        let last = nums.pop().unwrap(); // remove last element
+        nums.insert(0, last);           // insert at front — O(n) per step
+    }
+}`
 
-const ipr4Opt = `# Optimised: find the new tail, rewire two pointers
-def rotate_right(head, k):
-    if not head or not head.next:
-        return head
-    # step 1: find length and tail
-    length = 1
-    tail = head
-    while tail.next:
-        tail = tail.next
-        length += 1
-    # step 2: reduce k (rotating by length is a no-op)
-    k = k % length
-    if k == 0:
-        return head              # nothing to do
-    # step 3: find the new tail — it's at position (length - k - 1)
-    new_tail = head
-    for _ in range(length - k - 1):
-        new_tail = new_tail.next
-    new_head = new_tail.next     # node after new_tail becomes the new head
-    new_tail.next = None         # cut the list here
-    tail.next = head             # old tail connects to old head
-    return new_head`
+const ipr4Opt = `// Optimised: three-reversal trick — O(n) time, O(1) space
+// Rotating right by k == reverse all, reverse first k, reverse rest
+fn rotate_right(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    if n == 0 { return; }
+    let k = k % n;                   // rotating by n is a no-op
+    if k == 0 { return; }
+
+    // helper: reverse nums[lo..=hi] in place
+    fn rev(nums: &mut Vec<i32>, mut lo: usize, mut hi: usize) {
+        while lo < hi { nums.swap(lo, hi); lo += 1; hi -= 1; }
+    }
+
+    rev(nums, 0, n - 1);             // step 1: reverse entire slice
+    rev(nums, 0, k - 1);             // step 2: reverse first k elements
+    rev(nums, k, n - 1);             // step 3: reverse remaining elements
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5];
+    rotate_right(&mut list, 2);
+    println!("{:?}", list); // [4, 5, 1, 2, 3]
+}`
 
 // ─── TAUGHT Q5: Reverse Alternating K-element Sub-list ──────────────────────
-const ipr5Brute = `# Brute force: collect values, reverse alternating chunks
-def reverse_alternate_k_groups_brute(head, k):
-    vals = []
-    curr = head
-    while curr:
-        vals.append(curr.val)
-        curr = curr.next
-    result = []
-    i = 0
-    flip = True                  # alternate: reverse, skip, reverse, skip...
-    while i < len(vals):
-        chunk = vals[i:i+k]
-        if flip:
-            result.extend(chunk[::-1])
-        else:
-            result.extend(chunk)
-        i += k
-        flip = not flip
-    curr = head
-    for v in result:
-        curr.val = v
-        curr = curr.next
-    return head`
+const ipr5Brute = `// Brute force: collect values, reverse alternating chunks, rebuild
+fn reverse_alternate_k_groups_brute(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    let mut result: Vec<i32> = Vec::with_capacity(n);
+    let mut i = 0;
+    let mut should_reverse = true;
+    while i < n {
+        let end = (i + k).min(n);
+        if should_reverse {
+            for j in (i..end).rev() { result.push(nums[j]); }
+        } else {
+            result.extend_from_slice(&nums[i..end]);
+        }
+        i += k;
+        should_reverse = !should_reverse;   // alternate each chunk
+    }
+    nums.copy_from_slice(&result);
+}`
 
-const ipr5Opt = `# Optimised: reverse k nodes, skip k nodes, repeat in-place
-def reverse_alternate_k_groups(head, k):
-    curr = head
-    prev = None
-    while curr:
-        # --- PHASE 1: reverse k nodes ---
-        last_of_reversed = curr  # will be the tail of this reversed chunk
-        nxt = None
-        i = 0
-        while curr and i < k:
-            nxt = curr.next
-            curr.next = prev
-            prev = curr
-            curr = nxt
-            i += 1
-        # connect: whoever came before → new front of reversed chunk
-        if prev is not None:
-            # last_of_reversed.next still points into old list; we'll set it below
-            pass
-        # new head of reversed chunk is prev; last_of_reversed is its tail
-        last_of_reversed.next = curr   # tail of reversed → start of skip section
-        if head == last_of_reversed:   # first iteration: update overall head
-            head = prev
-        # --- PHASE 2: skip k nodes (don't reverse these) ---
-        prev = last_of_reversed        # prev is now the tail of reversed chunk
-        i = 0
-        while curr and i < k:
-            prev = curr
-            curr = curr.next
-            i += 1
-    return head`
+const ipr5Opt = `// Optimised: reverse k elements in-place, then skip k elements, repeat
+fn reverse_alternate_k_groups(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    let mut start = 0usize;
+    loop {
+        if start >= n { break; }
+
+        // --- PHASE 1: reverse k elements starting at 'start' ---
+        let end = (start + k).min(n);    // clamp to list end
+        let mut l = start;
+        let mut r = end - 1;
+        while l < r {
+            nums.swap(l, r);
+            l += 1;
+            r -= 1;
+        }
+        start += k;                      // move past reversed chunk
+
+        // --- PHASE 2: skip k elements (leave them untouched) ---
+        start += k;                      // jump over the skip window
+    }
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5, 6, 7, 8];
+    reverse_alternate_k_groups(&mut list, 2);
+    println!("{:?}", list); // [2, 1, 3, 4, 6, 5, 7, 8]
+}`
 
 // ─── PRACTICE answers ────────────────────────────────────────────────────────
-const pq1Code = `# Swap Nodes in Pairs — reverse every 2-node group
-def swap_pairs(head):
-    dummy = ListNode(0)
-    dummy.next = head
-    prev = dummy
-    while prev.next and prev.next.next:
-        # identify the two nodes to swap
-        first = prev.next
-        second = prev.next.next
-        # rewire: prev → second → first → (rest)
-        first.next = second.next   # first skips over second
-        second.next = first        # second points back to first
-        prev.next = second         # prev now leads into second
-        prev = first               # advance prev to first (now trailing)
-    return dummy.next`
+const pq1Code = `// Swap Nodes in Pairs — reverse every 2-element group (k=2 special case)
+fn swap_pairs(nums: &mut Vec<i32>) {
+    let n = nums.len();
+    let mut i = 0;
+    while i + 1 < n {
+        nums.swap(i, i + 1);   // swap adjacent pair
+        i += 2;                // advance to next pair
+    }
+}
 
-const pq2Code = `# Reverse Nodes in k-Group (same as Taught Q3)
-def reverse_k_group(head, k):
-    # count if we have k nodes
-    node, count = head, 0
-    while node and count < k:
-        node = node.next
-        count += 1
-    if count < k:
-        return head              # don't reverse incomplete group
-    # reverse k nodes
-    prev, curr = None, head
-    for _ in range(k):
-        nxt = curr.next
-        curr.next = prev
-        prev = curr
-        curr = nxt
-    head.next = reverse_k_group(curr, k)  # recursively handle rest
-    return prev`
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4];
+    swap_pairs(&mut list);
+    println!("{:?}", list); // [2, 1, 4, 3]
+}`
 
-const pq3Code = `# Odd Even Linked List — gather odds first, then evens
-def odd_even_list(head):
-    if not head:
-        return head
-    odd = head                   # pointer walking odd-indexed nodes (1,3,5...)
-    even = head.next             # pointer walking even-indexed nodes (2,4,6...)
-    even_head = even             # save even list start for later
-    while even and even.next:
-        odd.next = even.next     # odd skips over even to next odd
-        odd = odd.next           # advance odd pointer
-        even.next = odd.next     # even skips over odd to next even
-        even = even.next         # advance even pointer
-    odd.next = even_head         # attach even list after all odds
-    return head`
+const pq2Code = `// Reverse Nodes in k-Group (same logic as Taught Q3)
+fn reverse_k_group(nums: &mut Vec<i32>, k: usize) {
+    let n = nums.len();
+    let mut start = 0usize;
+    while start + k <= n {       // only process complete groups
+        let end = start + k - 1;
+        let mut l = start;
+        let mut r = end;
+        while l < r {
+            nums.swap(l, r);
+            l += 1;
+            r -= 1;
+        }
+        start += k;
+    }
+    // incomplete tail (< k elements) stays untouched
+}
 
-const pq4Code = `# Reverse Linked List II — same as Taught Q2
-def reverse_between(head, left, right):
-    dummy = ListNode(0)
-    dummy.next = head
-    prev = dummy
-    for _ in range(left - 1):   # walk to node just before 'left'
-        prev = prev.next
-    curr = prev.next             # first node to reverse
-    for _ in range(right - left):
-        nxt = curr.next          # node to move to front
-        curr.next = nxt.next     # detach nxt
-        nxt.next = prev.next     # nxt points to current front
-        prev.next = nxt          # nxt is now new front
-    return dummy.next`
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5];
+    reverse_k_group(&mut list, 2);
+    println!("{:?}", list); // [2, 1, 4, 3, 5]
+}`
 
-const pq5Code = `# Split Linked List in Parts — divide into k chunks, largest first
-def split_list_to_parts(head, k):
-    # step 1: count total length
-    length = 0
-    curr = head
-    while curr:
-        length += 1
-        curr = curr.next
-    # step 2: calculate chunk sizes
-    base_size = length // k      # minimum size of each part
-    extra = length % k           # first 'extra' parts get one more node
-    result = []
-    curr = head
-    for i in range(k):
-        part_head = curr         # start of this chunk
-        # this chunk is base_size long, +1 if we still have extra to distribute
-        chunk_size = base_size + (1 if i < extra else 0)
-        # walk to end of chunk
-        for _ in range(chunk_size - 1):
-            if curr:
-                curr = curr.next
-        # cut off this chunk from the rest
-        if curr:
-            curr.next, curr = None, curr.next
-        result.append(part_head)
-    return result`
+const pq3Code = `// Odd Even Linked List — gather odd-indexed values first, then even-indexed
+// Uses index-based simulation: odd indices are 1,3,5... (1-indexed)
+fn odd_even_list(nums: &mut Vec<i32>) {
+    let odds:  Vec<i32> = nums.iter().enumerate()
+        .filter(|(i, _)| i % 2 == 0)   // 0-indexed even → 1-indexed odd
+        .map(|(_, &v)| v)
+        .collect();
+    let evens: Vec<i32> = nums.iter().enumerate()
+        .filter(|(i, _)| i % 2 == 1)   // 0-indexed odd → 1-indexed even
+        .map(|(_, &v)| v)
+        .collect();
+    let mut pos = 0;
+    for v in odds.iter().chain(evens.iter()) {
+        nums[pos] = *v;
+        pos += 1;
+    }
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5];
+    odd_even_list(&mut list);
+    println!("{:?}", list); // [1, 3, 5, 2, 4]
+}`
+
+const pq4Code = `// Reverse Linked List II — same as Taught Q2
+// p and q are 1-indexed
+fn reverse_between(nums: &mut Vec<i32>, p: usize, q: usize) {
+    if p >= q { return; }
+    let mut left = p - 1;        // convert to 0-indexed
+    let mut right = q - 1;
+    while left < right {
+        nums.swap(left, right);
+        left += 1;
+        right -= 1;
+    }
+}
+
+// --- example usage ---
+fn main() {
+    let mut list = vec![1, 2, 3, 4, 5];
+    reverse_between(&mut list, 2, 4);
+    println!("{:?}", list); // [1, 4, 3, 2, 5]
+}`
+
+const pq5Code = `// Split Linked List in Parts — divide Vec into k chunks, largest chunks first
+fn split_list_to_parts(nums: Vec<i32>, k: usize) -> Vec<Vec<i32>> {
+    let n = nums.len();
+    let base_size = n / k;       // minimum size of each part
+    let extra = n % k;           // first 'extra' parts get one more element
+    let mut result: Vec<Vec<i32>> = Vec::with_capacity(k);
+    let mut pos = 0usize;
+    for i in 0..k {
+        let chunk_size = base_size + if i < extra { 1 } else { 0 };
+        result.push(nums[pos..pos + chunk_size].to_vec());
+        pos += chunk_size;
+    }
+    result
+}
+
+// --- example usage ---
+fn main() {
+    let list = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let parts = split_list_to_parts(list, 3);
+    for p in &parts { println!("{:?}", p); }
+    // [1, 2, 3, 4]
+    // [5, 6, 7]
+    // [8, 9, 10]
+}`
 
 export default function InPlaceReversalContent() {
   return (
@@ -398,8 +416,8 @@ export default function InPlaceReversalContent() {
         </Callout>
       </Sub>
 
-      <Sub title="ListNode class (used in all problems)">
-        <CodeBlock code={nodeClass} lang="python" />
+      <Sub title="Educational setup (used in all problems)">
+        <CodeBlock code={nodeClass} lang="rust" />
       </Sub>
 
       <Sub title="Taught Questions">
@@ -412,24 +430,25 @@ export default function InPlaceReversalContent() {
 Example: 1→2→3→4→5 → 5→4→3→2→1`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={ipr1Brute} lang="python" />
+            <CodeBlock code={ipr1Brute} lang="rust" />
             <Callout type="warn">Stores all values — misses the point of "in-place".</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={ipr1Opt} lang="python" />
+            <CodeBlock code={ipr1Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Three pointers is all you need. After the loop,
-              <code>prev</code> lands on the last node — which becomes the new head.
-              <code>curr</code> is always <code>None</code> at the end.
+              <strong>Aha moment:</strong> Two pointers walking toward each other, swapping
+              as they go. Rust's built-in <code>slice::swap</code> handles the borrow
+              cleanly — no need for a temp variable.
+              When <code>left</code> meets or passes <code>right</code>, the list is reversed.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Writing <code>curr.next = prev</code> BEFORE
-              saving <code>nxt = curr.next</code>. You'll lose the rest of the list!
-              Always save first.
+              <strong>Common mistake:</strong> Using <code>nums.len() - 1</code> as a
+              <code>usize</code> when the Vec is empty causes a wrapping underflow in Rust.
+              Always guard with <code>if nums.is_empty() {'{ return; }'}</code> first.
             </Callout>
           </>}
-          answer="Three pointers: prev=None, curr=head. Each iteration: save next, flip arrow, advance both. Return prev at the end."
+          answer="Two pointers left=0, right=len-1. Swap and converge. Rust's nums.swap(l, r) makes this clean and safe."
         />
 
         <QuestionCard
@@ -441,23 +460,23 @@ Example: 1→2→3→4→5 → 5→4→3→2→1`}
 Example: 1→2→3→4→5, left=2, right=4 → 1→4→3→2→5`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={ipr2Brute} lang="python" />
+            <CodeBlock code={ipr2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={ipr2Opt} lang="python" />
+            <CodeBlock code={ipr2Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Instead of three-pointer walking, use a "pull to
-              front" trick: grab the node after <code>curr</code>, yank it to just after
-              <code>prev</code>, repeat. This reverses the sublist one node at a time.
+              <strong>Aha moment:</strong> Convert 1-indexed <code>p</code> and <code>q</code>
+              to 0-indexed, then run the same two-pointer swap inside the window.
+              Everything outside <code>[p-1 .. q-1]</code> is untouched.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Off-by-one walking to <code>left</code>.
-              You want <code>prev</code> to stop at position <code>left-1</code> (the node
-              BEFORE the reversal starts), so loop <code>left-1</code> times.
+              <strong>Common mistake:</strong> Off-by-one when converting to 0-indexed.
+              Position <code>left</code> (1-indexed) maps to index <code>left - 1</code>.
+              Use <code>p - 1</code> and <code>q - 1</code> consistently.
             </Callout>
           </>}
-          answer="Walk prev to position left-1, then pull the node after curr to front of sublist, right-left times."
+          answer="Convert p,q to 0-indexed. Two-pointer swap from left=p-1 to right=q-1, converging inward."
         />
 
         <QuestionCard
@@ -469,23 +488,22 @@ Example: 1→2→3→4→5, left=2, right=4 → 1→4→3→2→5`}
 Example: 1→2→3→4→5→6→7→8, k=3 → 3→2→1→6→5→4→7→8`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={ipr3Brute} lang="python" />
+            <CodeBlock code={ipr3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={ipr3Opt} lang="python" />
+            <CodeBlock code={ipr3Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> First check you have k nodes before committing to
-              reverse. Then use the standard three-pointer reversal on exactly k nodes.
-              The old head of the group becomes the tail after reversal — attach the
-              recursion result there.
+              <strong>Aha moment:</strong> The guard <code>start + k &lt;= n</code> ensures
+              we only reverse complete groups. The tail (fewer than k elements) is
+              automatically skipped. Each window is reversed with the same two-pointer swap.
             </Callout>
             <Callout type="danger">
               <strong>Common mistake:</strong> Forgetting to check if there are k nodes left
               before reversing. Reversing a partial group at the end is wrong — leave it as-is.
             </Callout>
           </>}
-          answer="Count k nodes first (return unchanged if fewer). Reverse k nodes, set head.next = recurse(rest, k), return prev."
+          answer="Loop with start+=k. Guard: start+k <= n. Two-pointer swap inside [start .. start+k-1]. Tail left untouched."
         />
 
         <QuestionCard
@@ -497,24 +515,24 @@ Example: 1→2→3→4→5→6→7→8, k=3 → 3→2→1→6→5→4→7→8`}
 Example: 1→2→3→4→5, k=2 → 4→5→1→2→3`}
           brute={<>
             <BigOBadge time="O(n·k)" space="O(1)" />
-            <CodeBlock code={ipr4Brute} lang="python" />
+            <CodeBlock code={ipr4Brute} lang="rust" />
             <Callout type="warn">O(n·k) — terrible when k is huge.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={ipr4Opt} lang="python" />
+            <CodeBlock code={ipr4Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Rotating by length is a no-op. So first reduce
-              k modulo length. Then the new head is at position <code>length - k</code>
-              from the start — just rewire two pointers.
+              <strong>Aha moment:</strong> Three reversals is all it takes. Rotating right
+              by k is equivalent to: reverse all → reverse first k → reverse rest.
+              Reduce k with <code>k % n</code> first so you never do unnecessary work.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Forgetting <code>k = k % length</code>.
+              <strong>Common mistake:</strong> Forgetting <code>k = k % n</code>.
               If k equals the list length, nothing should change — but a naive rotation
               would do n swaps.
             </Callout>
           </>}
-          answer="Find length + tail, reduce k mod length, find new tail at position length-k-1, cut and rewire."
+          answer="k %= n, then three-reversal trick: reverse all, reverse [0..k-1], reverse [k..n-1]."
         />
 
         <QuestionCard
@@ -526,24 +544,24 @@ Example: 1→2→3→4→5, k=2 → 4→5→1→2→3`}
 Example: 1→2→3→4→5→6→7→8, k=2 → 2→1→3→4→6→5→7→8`}
           brute={<>
             <BigOBadge time="O(n)" space="O(n)" />
-            <CodeBlock code={ipr5Brute} lang="python" />
+            <CodeBlock code={ipr5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={ipr5Opt} lang="python" />
+            <CodeBlock code={ipr5Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Two phases per iteration — reverse k nodes (using
-              the standard three-pointer trick), then advance k nodes without touching them.
-              Track the tail of the reversed chunk so you can properly connect it to the
-              skipped section.
+              <strong>Aha moment:</strong> Two phases per iteration — reverse k elements
+              (two-pointer swap on the current window), then skip k elements (just advance
+              the start index). Advancing <code>start += k</code> twice in one loop body
+              handles both phases cleanly.
             </Callout>
             <Callout type="danger">
-              <strong>Common mistake:</strong> Losing the connection between the reversed chunk
-              and the skipped section. Set <code>last_of_reversed.next = curr</code> right
-              after the reversal loop to bridge the gap.
+              <strong>Common mistake:</strong> Using <code>(start + k).min(n)</code> for the
+              reverse end is important — the last reverse window may be smaller than k if
+              the list length isn't a multiple of 2k.
             </Callout>
           </>}
-          answer="Alternate between: reverse k nodes (three-pointer), skip k nodes (just advance). Carefully reconnect the reversed tail to the skip section each time."
+          answer="Loop: two-pointer swap on [start .. start+k), then start += k twice (once for reverse window, once for skip window)."
         />
       </Sub>
 
@@ -560,11 +578,12 @@ Example: 1→2→3→4→5→6→7→8, k=2 → 2→1→3→4→6→5→7→8`}
 Example: 1→2→3→4 → 2→1→4→3`}
           hints={[
             "This is reverse-every-2 — special case of reverse k-group with k=2.",
-            "Use a dummy head so you don't need to special-case the start.",
-            "Each iteration: identify the pair (first, second), rewire: prev→second→first→rest.",
+            "Walk with a step of 2, swapping nums[i] and nums[i+1] each time.",
+            "Guard i + 1 < n so you don't go out of bounds on an odd-length list.",
           ]}
-          answer="Dummy head + loop: each step grab two nodes, rewire second→first, advance prev to first."
+          answer="Step by 2: while i+1 < n { nums.swap(i, i+1); i += 2; }"
           answerCode={pq1Code}
+          lang="rust"
         />
 
         <QuestionCard
@@ -576,12 +595,13 @@ Example: 1→2→3→4 → 2→1→4→3`}
 
 Example: 1→2→3→4→5, k=2 → 2→1→4→3→5`}
           hints={[
-            "Count k nodes ahead first — if fewer than k remain, return head unchanged.",
-            "Reverse exactly k nodes with the three-pointer approach.",
-            "Set head.next = recurse on the remaining list, then return the new head (prev).",
+            "Guard start + k <= n before reversing each window — incomplete tails stay as-is.",
+            "Two-pointer swap on [start .. start+k-1] reverses the window in place.",
+            "Advance start += k after each window and repeat.",
           ]}
-          answer="Count k, reverse k, attach recursion result to old head (now tail), return prev."
+          answer="while start + k <= n: two-pointer swap [start..start+k-1], then start += k."
           answerCode={pq2Code}
+          lang="rust"
         />
 
         <QuestionCard
@@ -593,12 +613,13 @@ Example: 1→2→3→4→5, k=2 → 2→1→4→3→5`}
 
 Example: 1→2→3→4→5 → 1→3→5→2→4`}
           hints={[
-            "Two separate pointer chains — one collecting odd-index nodes, one even-index.",
-            "Walk both pointers simultaneously, skipping alternate nodes.",
-            "At the end, link the tail of the odd chain to the head of the even chain.",
+            "Collect odd-indexed values (0-indexed even positions) and even-indexed values separately.",
+            "Concatenate odds then evens and write back into the slice.",
+            "In Rust, iterator + enumerate() + filter() makes this clean.",
           ]}
-          answer="odd and even pointers walk together skipping alternately; at the end odd.next = even_head."
+          answer="Partition by index parity, collect odds then evens, write back in order."
           answerCode={pq3Code}
+          lang="rust"
         />
 
         <QuestionCard
@@ -610,12 +631,13 @@ Example: 1→2→3→4→5 → 1→3→5→2→4`}
 
 Example: 1→2→3→4→5, left=2, right=4 → 1→4→3→2→5`}
           hints={[
-            "Walk to the node just before position left (use a dummy head to simplify).",
-            "Then repeatedly pull the node after curr to just after prev — right-left times.",
-            "You don't need to do a full three-pointer reversal; the 'pull to front' trick handles it in one pointer setup.",
+            "Convert 1-indexed left/right to 0-indexed left-1 / right-1.",
+            "Two-pointer swap from both ends of the window, converging inward.",
+            "Everything outside the window is untouched.",
           ]}
-          answer="Dummy head, walk prev to left-1, then pull nxt = curr.next to front of sublist, right-left times."
+          answer="left_idx = left-1, right_idx = right-1. Two-pointer swap converging inward."
           answerCode={pq4Code}
+          lang="rust"
         />
 
         <QuestionCard
@@ -627,12 +649,13 @@ Example: 1→2→3→4→5, left=2, right=4 → 1→4→3→2→5`}
 
 Example: 1→2→3→4→5→6→7→8→9→10, k=3 → [[1,2,3,4],[5,6,7],[8,9,10]]`}
           hints={[
-            "First count the total length of the list.",
-            "base_size = length // k, extra = length % k. The first 'extra' parts get base_size+1 nodes.",
-            "Walk the list, cut after each chunk by setting curr.next = None, then advance curr.",
+            "base_size = n / k, extra = n % k. First 'extra' parts get base_size+1 elements.",
+            "Walk pos through the slice, slicing off each chunk of the right size.",
+            "Use nums[pos..pos+chunk_size].to_vec() to grab each chunk.",
           ]}
-          answer="Count length, compute base_size and extra, then cut the list into chunks of the right sizes."
+          answer="base_size = n/k, extra = n%k. For each i in 0..k: chunk_size = base_size + (i < extra ? 1 : 0), slice and advance pos."
           answerCode={pq5Code}
+          lang="rust"
         />
       </Sub>
 

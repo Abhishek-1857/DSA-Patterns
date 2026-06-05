@@ -55,7 +55,7 @@ const TOPK_STRATEGIES = `
 THREE STRATEGIES FOR "TOP K" PROBLEMS:
 
 1. SORT — O(n log n):
-   nums.sort(reverse=True); return nums[:k]
+   nums.sort_unstable_by(|a, b| b.cmp(a)); return nums[..k].to_vec()
    Simple but slow. Fine for small n.
 
 2. MIN-HEAP OF SIZE K — O(n log k):
@@ -70,218 +70,316 @@ THREE STRATEGIES FOR "TOP K" PROBLEMS:
 `
 
 // ── Q1: Kth Largest Element ────────────────────────────────────────────────
-const q1Brute = `# Brute: sort descending, return element at index k-1
-def find_kth_largest_brute(nums, k):
-    nums.sort(reverse=True)      # sort all n elements — O(n log n)
-    return nums[k - 1]           # kth element from the start`
+const q1Brute = `use std::cmp::Reverse;
 
-const q1Opt = `import heapq
+// Brute: sort descending, return element at index k-1
+fn find_kth_largest_brute(mut nums: Vec<i32>, k: usize) -> i32 {
+    nums.sort_unstable_by(|a, b| b.cmp(a));  // sort all n elements — O(n log n)
+    nums[k - 1]                               // kth element from the start
+}`
 
-def find_kth_largest(nums, k):
-    heap = []                        # min-heap of size k
+const q1Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-    for num in nums:
-        heapq.heappush(heap, num)    # add this element
-        if len(heap) > k:
-            heapq.heappop(heap)      # kick out the SMALLEST — it can't be top-k
+fn find_kth_largest(nums: Vec<i32>, k: usize) -> i32 {
+    let mut min_heap: BinaryHeap<Reverse<i32>> = BinaryHeap::new();  // min-heap of size k
 
-    return heap[0]                   # top of min-heap = kth largest`
+    for &num in &nums {
+        min_heap.push(Reverse(num));   // add this element
+        if min_heap.len() > k {
+            min_heap.pop();            // kick out the SMALLEST — it can't be top-k
+        }
+    }
+
+    min_heap.peek().unwrap().0         // top of min-heap = kth largest
+}`
 
 // ── Q2: Top K Frequent Elements ────────────────────────────────────────────
-const q2Brute = `from collections import Counter
+const q2Brute = `use std::collections::HashMap;
 
-# Brute: count, sort by frequency, take top k
-def top_k_frequent_brute(nums, k):
-    counts = Counter(nums)           # O(n) count
-    # sort all unique elements by frequency descending — O(u log u)
-    sorted_items = sorted(counts.items(), key=lambda x: -x[1])
-    return [item[0] for item in sorted_items[:k]]`
+// Brute: count, sort by frequency, take top k
+fn top_k_frequent_brute(nums: Vec<i32>, k: usize) -> Vec<i32> {
+    let mut counts: HashMap<i32, usize> = HashMap::new();
+    for &n in &nums {
+        *counts.entry(n).or_insert(0) += 1;  // O(n) count
+    }
+    // sort all unique elements by frequency descending — O(u log u)
+    let mut items: Vec<(i32, usize)> = counts.into_iter().collect();
+    items.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+    items.into_iter().take(k).map(|(num, _)| num).collect()
+}`
 
-const q2Opt = `import heapq
-from collections import Counter
+const q2Opt = `use std::collections::{BinaryHeap, HashMap};
+use std::cmp::Reverse;
 
-def top_k_frequent(nums, k):
-    counts = Counter(nums)           # {element: frequency}
-    heap = []                        # min-heap of (frequency, element)
+fn top_k_frequent(nums: Vec<i32>, k: usize) -> Vec<i32> {
+    let mut counts: HashMap<i32, usize> = HashMap::new();
+    for &n in &nums {
+        *counts.entry(n).or_insert(0) += 1;  // {element: frequency}
+    }
 
-    for num, freq in counts.items():
-        heapq.heappush(heap, (freq, num))  # push (freq, element) pair
-        if len(heap) > k:
-            heapq.heappop(heap)      # remove the LEAST frequent (min of freq)
+    // min-heap of (frequency, element), keep top k by freq
+    let mut heap: BinaryHeap<Reverse<(usize, i32)>> = BinaryHeap::new();
+    for (&num, &freq) in &counts {
+        heap.push(Reverse((freq, num)));       // push (freq, element) pair
+        if heap.len() > k {
+            heap.pop();                        // remove the LEAST frequent (min of freq)
+        }
+    }
 
-    return [num for freq, num in heap]   # extract just the elements`
+    heap.into_iter().map(|Reverse((_, num))| num).collect()  // extract just the elements
+}`
 
 // ── Q3: K Closest Points to Origin ────────────────────────────────────────
-const q3Brute = `# Brute: compute all distances, sort, take k closest
-def k_closest_brute(points, k):
-    # sort by distance squared (no need for sqrt — order is same)
-    points.sort(key=lambda p: p[0]**2 + p[1]**2)
-    return points[:k]`
+const q3Brute = `// Brute: compute all distances, sort, take k closest
+fn k_closest_brute(mut points: Vec<Vec<i32>>, k: usize) -> Vec<Vec<i32>> {
+    // sort by distance squared (no need for sqrt — order is same)
+    points.sort_unstable_by_key(|p| p[0] * p[0] + p[1] * p[1]);
+    points.into_iter().take(k).collect()
+}`
 
-const q3Opt = `import heapq
+const q3Opt = `use std::collections::BinaryHeap;
 
-def k_closest(points, k):
-    # MAX-heap of size k: store (-distance, point) so Python's min-heap acts as max
-    heap = []
+fn k_closest(points: Vec<Vec<i32>>, k: usize) -> Vec<Vec<i32>> {
+    // MAX-heap of size k: store (dist_sq, x, y)
+    // BinaryHeap is a max-heap by default — largest dist pops first
+    let mut heap: BinaryHeap<(i32, i32, i32)> = BinaryHeap::new();
 
-    for x, y in points:
-        dist_sq = x*x + y*y
-        heapq.heappush(heap, (-dist_sq, x, y))  # negate: smallest dist = largest neg
-        if len(heap) > k:
-            heapq.heappop(heap)      # pop the FARTHEST point (largest dist = least neg)
+    for p in &points {
+        let (x, y) = (p[0], p[1]);
+        let dist_sq = x * x + y * y;
+        heap.push((dist_sq, x, y));            // largest dist_sq = top of max-heap
+        if heap.len() > k {
+            heap.pop();                        // pop the FARTHEST point
+        }
+    }
 
-    return [[x, y] for _, x, y in heap]`
+    heap.into_iter().map(|(_, x, y)| vec![x, y]).collect()
+}`
 
 // ── Q4: Sort Characters by Frequency ──────────────────────────────────────
-const q4Brute = `from collections import Counter
+const q4Brute = `use std::collections::HashMap;
 
-# Brute: count, sort by frequency desc, rebuild string
-def frequency_sort_brute(s):
-    counts = Counter(s)
-    # sort characters by frequency descending
-    chars = sorted(counts.keys(), key=lambda c: -counts[c])
-    return ''.join(c * counts[c] for c in chars)`
+// Brute: count, sort by frequency desc, rebuild string
+fn frequency_sort_brute(s: String) -> String {
+    let mut counts: HashMap<char, usize> = HashMap::new();
+    for ch in s.chars() {
+        *counts.entry(ch).or_insert(0) += 1;
+    }
+    // sort characters by frequency descending
+    let mut chars: Vec<char> = counts.keys().cloned().collect();
+    chars.sort_unstable_by(|a, b| counts[b].cmp(&counts[a]));
+    chars.iter().flat_map(|&c| std::iter::repeat(c).take(counts[&c])).collect()
+}`
 
-const q4Opt = `import heapq
-from collections import Counter
+const q4Opt = `use std::collections::{BinaryHeap, HashMap};
 
-def frequency_sort(s):
-    counts = Counter(s)              # count each character's frequency
-    # max-heap: store (-freq, char) so highest frequency pops first
-    heap = [(-freq, ch) for ch, freq in counts.items()]
-    heapq.heapify(heap)              # O(n) build heap
+fn frequency_sort(s: String) -> String {
+    let mut counts: HashMap<char, usize> = HashMap::new();
+    for ch in s.chars() {
+        *counts.entry(ch).or_insert(0) += 1;  // count each character's frequency
+    }
 
-    result = []
-    while heap:
-        freq, ch = heapq.heappop(heap)   # most frequent character
-        result.append(ch * (-freq))      # append it -freq times (freq is negative)
+    // max-heap: store (freq, char as u32) so highest frequency pops first
+    let mut heap: BinaryHeap<(usize, u32)> = counts
+        .iter()
+        .map(|(&ch, &freq)| (freq, ch as u32))
+        .collect();
+    // BinaryHeap::from() calls heapify — O(n) build
 
-    return ''.join(result)`
+    let mut result = String::new();
+    while let Some((freq, ch_u32)) = heap.pop() {   // most frequent character
+        let ch = char::from_u32(ch_u32).unwrap();
+        for _ in 0..freq {
+            result.push(ch);                         // append it freq times
+        }
+    }
+
+    result
+}`
 
 // ── Q5: Kth Smallest in Sorted Matrix ─────────────────────────────────────
-const q5Brute = `# Brute: flatten the matrix, sort, return kth element
-def kth_smallest_brute(matrix, k):
-    flat = [val for row in matrix for val in row]  # flatten
-    flat.sort()                      # sort all n*n elements
-    return flat[k - 1]               # kth smallest (1-indexed)`
+const q5Brute = `// Brute: flatten the matrix, sort, return kth element
+fn kth_smallest_brute(matrix: Vec<Vec<i32>>, k: usize) -> i32 {
+    let mut flat: Vec<i32> = matrix.into_iter().flatten().collect();  // flatten
+    flat.sort_unstable();                           // sort all n*n elements
+    flat[k - 1]                                     // kth smallest (1-indexed)
+}`
 
-const q5Opt = `import heapq
+const q5Opt = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-def kth_smallest(matrix, k):
-    n = len(matrix)
-    # min-heap: (value, row, col) — start with the first element of each row
-    heap = [(matrix[i][0], i, 0) for i in range(n)]
-    heapq.heapify(heap)              # O(n) build
+fn kth_smallest(matrix: Vec<Vec<i32>>, k: usize) -> i32 {
+    let n = matrix.len();
+    // min-heap: (value, row, col) — start with the first element of each row
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = (0..n)
+        .map(|i| Reverse((matrix[i][0], i, 0)))
+        .collect();
+    // BinaryHeap::from() via collect() calls heapify — O(n) build
 
-    val = 0
-    for _ in range(k):
-        val, row, col = heapq.heappop(heap)   # pop the current minimum
-        if col + 1 < n:
-            # push the next element in the same row
-            heapq.heappush(heap, (matrix[row][col + 1], row, col + 1))
+    let mut val = 0;
+    for _ in 0..k {
+        let Reverse((v, row, col)) = heap.pop().unwrap();  // pop the current minimum
+        val = v;
+        if col + 1 < n {
+            // push the next element in the same row
+            heap.push(Reverse((matrix[row][col + 1], row, col + 1)));
+        }
+    }
 
-    return val                       # after k pops, val is the kth smallest`
+    val  // after k pops, val is the kth smallest
+}`
 
 // ── PRACTICE answers ───────────────────────────────────────────────────────
-const pq1Code = `import heapq
+const pq1Code = `use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
-# Find K Pairs with Smallest Sums — merge k sorted lists with a heap
-def k_smallest_pairs(nums1, nums2, k):
-    if not nums1 or not nums2:
-        return []
-    heap = []
-    result = []
-    # seed the heap with (nums1[i] + nums2[0], i, 0) for all i in nums1
-    # (only first k elements of nums1 matter since it's sorted)
-    for i in range(min(k, len(nums1))):
-        heapq.heappush(heap, (nums1[i] + nums2[0], i, 0))
+// Find K Pairs with Smallest Sums — merge k sorted lists with a heap
+fn k_smallest_pairs(nums1: Vec<i32>, nums2: Vec<i32>, k: usize) -> Vec<Vec<i32>> {
+    if nums1.is_empty() || nums2.is_empty() {
+        return vec![];
+    }
+    let mut heap: BinaryHeap<Reverse<(i32, usize, usize)>> = BinaryHeap::new();
+    let mut result: Vec<Vec<i32>> = Vec::new();
 
-    while heap and len(result) < k:
-        total, i, j = heapq.heappop(heap)
-        result.append([nums1[i], nums2[j]])
-        if j + 1 < len(nums2):
-            # push the pair with the same nums1[i] but next nums2 element
-            heapq.heappush(heap, (nums1[i] + nums2[j + 1], i, j + 1))
+    // seed the heap with (nums1[i] + nums2[0], i, 0) for first k elements of nums1
+    // (only first k elements of nums1 matter since it's sorted)
+    for i in 0..k.min(nums1.len()) {
+        heap.push(Reverse((nums1[i] + nums2[0], i, 0)));
+    }
 
-    return result`
+    while let Some(Reverse((_, i, j))) = heap.pop() {
+        if result.len() == k { break; }
+        result.push(vec![nums1[i], nums2[j]]);
+        if j + 1 < nums2.len() {
+            // push the pair with the same nums1[i] but next nums2 element
+            heap.push(Reverse((nums1[i] + nums2[j + 1], i, j + 1)));
+        }
+    }
 
-const pq2Code = `import heapq
-from collections import Counter
+    result
+}`
 
-# Reorganize String — max-heap by frequency, interleave characters
-def reorganize_string(s):
-    counts = Counter(s)
-    max_heap = [(-cnt, ch) for ch, cnt in counts.items()]
-    heapq.heapify(max_heap)
+const pq2Code = `use std::collections::{BinaryHeap, HashMap};
 
-    result = []
-    prev_cnt, prev_ch = 0, ''        # hold the previously placed char on cooldown
+// Reorganize String — max-heap by frequency, interleave characters
+fn reorganize_string(s: String) -> String {
+    let mut counts: HashMap<char, i32> = HashMap::new();
+    for ch in s.chars() {
+        *counts.entry(ch).or_insert(0) += 1;
+    }
 
-    while max_heap or prev_cnt < 0:
-        if not max_heap:
-            return ""                 # can't place — two of same char would be adjacent
-        cnt, ch = heapq.heappop(max_heap)
-        result.append(ch)
-        if prev_cnt < 0:             # previous char still has remaining uses
-            heapq.heappush(max_heap, (prev_cnt, prev_ch))
-        prev_cnt = cnt + 1           # decrement count (counts are negative)
-        prev_ch = ch
+    // max-heap: (freq, char as u32) — higher frequency pops first
+    let mut max_heap: BinaryHeap<(i32, u32)> = counts
+        .iter()
+        .map(|(&ch, &cnt)| (cnt, ch as u32))
+        .collect();
 
-    return "".join(result)`
+    let mut result = String::new();
+    let mut prev: Option<(i32, u32)> = None;  // hold previously placed char on cooldown
 
-const pq3Code = `import heapq
-from collections import Counter
-import math
+    while !max_heap.is_empty() || prev.is_some() {
+        if max_heap.is_empty() {
+            return String::new();              // can't place — two of same char would be adjacent
+        }
+        let (cnt, ch_u32) = max_heap.pop().unwrap();
+        result.push(char::from_u32(ch_u32).unwrap());
+        if let Some((prev_cnt, prev_ch)) = prev.take() {
+            if prev_cnt > 0 {                  // previous char still has remaining uses
+                max_heap.push((prev_cnt, prev_ch));
+            }
+        }
+        if cnt - 1 > 0 {
+            prev = Some((cnt - 1, ch_u32));    // put current on cooldown
+        }
+    }
 
-# Task Scheduler — greedy: always run the most frequent available task
-def least_interval(tasks, n):
-    counts = Counter(tasks)
-    max_heap = [-c for c in counts.values()]
-    heapq.heapify(max_heap)
+    result
+}`
 
-    time = 0
-    cooldown = []                    # (available_at_time, neg_count)
+const pq3Code = `use std::collections::{BinaryHeap, HashMap};
 
-    while max_heap or cooldown:
-        time += 1
-        if max_heap:
-            cnt = heapq.heappop(max_heap) + 1   # run one (+1 because count is negative)
-            if cnt < 0:                          # task still has remaining instances
-                cooldown.append((time + n, cnt))
-        # release tasks whose cooldown has expired
-        if cooldown and cooldown[0][0] == time:
-            _, cnt = cooldown.pop(0)
-            heapq.heappush(max_heap, cnt)
+// Task Scheduler — greedy: always run the most frequent available task
+fn least_interval(tasks: Vec<char>, n: usize) -> i32 {
+    let mut counts: HashMap<char, i32> = HashMap::new();
+    for &t in &tasks {
+        *counts.entry(t).or_insert(0) += 1;
+    }
 
-    return time`
+    // max-heap of task counts (stored as positive i32)
+    let mut max_heap: BinaryHeap<i32> = counts.values().cloned().collect();
+    let mut time: i32 = 0;
+    let mut cooldown: std::collections::VecDeque<(i32, i32)> = std::collections::VecDeque::new();
+    // cooldown stores (available_at_time, remaining_count)
 
-const pq4Code = `from collections import Counter
+    while !max_heap.is_empty() || !cooldown.is_empty() {
+        time += 1;
+        if let Some(cnt) = max_heap.pop() {
+            if cnt - 1 > 0 {                             // task still has remaining instances
+                cooldown.push_back((time + n as i32, cnt - 1));
+            }
+        }
+        // release tasks whose cooldown has expired
+        if let Some(&(available_at, cnt)) = cooldown.front() {
+            if available_at == time {
+                cooldown.pop_front();
+                max_heap.push(cnt);
+            }
+        }
+    }
 
-# Frequency Sort — same idea as Taught Q4, sort characters by frequency desc
-def frequency_sort(s):
-    counts = Counter(s)
-    # Python's sorted with a key — sort by frequency descending
-    chars = sorted(counts.keys(), key=lambda c: -counts[c])
-    return ''.join(c * counts[c] for c in chars)`
+    time
+}`
 
-const pq5Code = `import heapq
-from collections import Counter
+const pq4Code = `use std::collections::HashMap;
 
-# Top K Frequent Words — heap of (freq, word), break ties alphabetically
-def top_k_frequent_words(words, k):
-    counts = Counter(words)
-    # store (-freq, word): min-heap pops least frequent first
-    # negative freq + natural word ordering gives us: highest freq first,
-    # alphabetically first for ties
-    heap = [(-freq, word) for word, freq in counts.items()]
-    heapq.heapify(heap)
+// Frequency Sort — sort by frequency ascending, larger values first for ties
+fn frequency_sort(nums: Vec<i32>) -> Vec<i32> {
+    let mut counts: HashMap<i32, usize> = HashMap::new();
+    for &n in &nums {
+        *counts.entry(n).or_insert(0) += 1;
+    }
+    // sort by (frequency ascending, value descending) —
+    // rarer elements first, larger values first for ties
+    let mut result = nums.clone();
+    result.sort_unstable_by(|a, b| {
+        counts[a].cmp(&counts[b]).then(b.cmp(a))
+    });
+    result
+}`
 
-    result = []
-    for _ in range(k):
-        _, word = heapq.heappop(heap)  # pop the most frequent (or alphabetically first tie)
-        result.append(word)
+const pq5Code = `use std::collections::{BinaryHeap, HashMap};
+use std::cmp::Reverse;
 
-    return result`
+// Top K Frequent Words — heap of (freq, word), break ties alphabetically
+fn top_k_frequent_words(words: Vec<String>, k: usize) -> Vec<String> {
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for w in &words {
+        *counts.entry(w.as_str()).or_insert(0) += 1;
+    }
+
+    // min-heap of (freq, word): store Reverse so lowest freq + lexicographically
+    // last word pops first — keeping top k by freq with alphabetical tie-breaking
+    let mut heap: BinaryHeap<Reverse<(usize, &str)>> = counts
+        .iter()
+        .map(|(&w, &f)| Reverse((f, w)))
+        .collect();
+
+    // keep only top k: pop excess (lowest freq / last alpha) off the heap
+    while heap.len() > k {
+        heap.pop();
+    }
+
+    // drain remaining k in reverse order (lowest first), then reverse result
+    let mut result: Vec<String> = heap
+        .into_sorted_vec()
+        .into_iter()
+        .rev()
+        .map(|Reverse((_, w))| w.to_string())
+        .collect();
+    result.truncate(k);
+    result
+}`
 
 export default function TopKElementsContent() {
   return (
@@ -327,12 +425,12 @@ export default function TopKElementsContent() {
 Example: nums=[3,2,1,5,6,4], k=2 → 5`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(1)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
             <Callout type="warn">Sorting all n elements when you only need 1 is wasteful if k is small.</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(n log k)" space="O(k)" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> A min-heap of size k keeps the k largest seen so
               far. The <em>top</em> of the min-heap is the smallest of those k — which is
@@ -356,11 +454,11 @@ Example: nums=[3,2,1,5,6,4], k=2 → 5`}
 Example: nums=[1,1,1,2,2,3], k=2 → [1,2]`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(n)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n log k)" space="O(n)" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Push <em>frequency</em> as the heap key, not the
               value itself. A min-heap of size k keyed by frequency keeps the k most-frequent
@@ -369,7 +467,7 @@ Example: nums=[1,1,1,2,2,3], k=2 → [1,2]`}
             </Callout>
             <Callout type="danger">
               <strong>Common mistake:</strong> Pushing <code>(num, freq)</code> instead of
-              <code>(freq, num)</code>. Python heaps compare tuples element by element —
+              <code>(freq, num)</code>. Rust tuples compare lexicographically —
               the first element must be your priority key.
             </Callout>
           </>}
@@ -385,16 +483,16 @@ Example: nums=[1,1,1,2,2,3], k=2 → [1,2]`}
 Example: points=[[1,3],[-2,2]], k=1 → [[-2,2]]`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(1)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n log k)" space="O(k)" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> We want the k <em>smallest</em> distances, so we
               keep a <em>max</em>-heap of size k. When a new point's distance is smaller than
-              the farthest point in our heap, it replaces that farthest point. Simulate max-heap
-              with Python by negating distances.
+              the farthest point in our heap, it replaces that farthest point. Rust's
+              BinaryHeap is a max-heap by default — no negation needed.
             </Callout>
             <Callout type="danger">
               <strong>Common mistake:</strong> Computing <code>sqrt(x²+y²)</code> when
@@ -402,7 +500,7 @@ Example: points=[[1,3],[-2,2]], k=1 → [[-2,2]]`}
               and identical for comparison purposes.
             </Callout>
           </>}
-          answer="Max-heap of size k storing (-dist², x, y). When heap > k, pop the farthest. Remaining k elements are the closest points."
+          answer="Max-heap of size k storing (dist², x, y). When heap > k, pop the farthest. Remaining k elements are the closest points."
         />
 
         <QuestionCard
@@ -415,11 +513,11 @@ Example: "tree" → "eert" or "eetr"
 Example: "cccaaa" → "cccaaa" or "aaaccc"`}
           brute={<>
             <BigOBadge time="O(n log n)" space="O(n)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(n log d)" space="O(d)" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> This is a max-heap problem: keep popping the
               most frequent character and appending it <em>frequency</em> times. Unlike top-k
@@ -432,7 +530,7 @@ Example: "cccaaa" → "cccaaa" or "aaaccc"`}
               consecutively before moving to the next.
             </Callout>
           </>}
-          answer="Count frequencies. Max-heap of (-freq, char). Pop each char, append it freq times to result. Drain the entire heap."
+          answer="Count frequencies. Max-heap of (freq, char). Pop each char, append it freq times to result. Drain the entire heap."
         />
 
         <QuestionCard
@@ -444,11 +542,11 @@ Example: "cccaaa" → "cccaaa" or "aaaccc"`}
 Example: matrix=[[1,5,9],[10,11,13],[12,13,15]], k=8 → 13`}
           brute={<>
             <BigOBadge time="O(n² log n²)" space="O(n²)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(k log n)" space="O(n)" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Think of each row as a sorted list. Initialize the
               heap with the first element of each row. Each pop gives you the globally
@@ -497,10 +595,10 @@ Example: "aab" → "aba"
 Example: "aaab" → ""`}
           hints={[
             "Greedy: always place the most frequent character that wasn't just placed.",
-            "Max-heap of (-freq, char). Place top character, hold the previous one on cooldown for one step, then reinsert it.",
+            "Max-heap of (freq, char). Place top character, hold the previous one on cooldown for one step, then reinsert it.",
             "If the heap is empty but you still have a held character to reinsert, return '' (impossible).",
           ]}
-          answer="Max-heap of (-freq, char). Each step: pop most frequent, append it, push back the previous character (now off cooldown). If heap empty with held char remaining, impossible."
+          answer="Max-heap of (freq, char). Each step: pop most frequent, append it, push back the previous character (now off cooldown). If heap empty with held char remaining, impossible."
           answerCode={pq2Code}
         />
 
@@ -532,9 +630,9 @@ Example: [1,1,2,2,2,3] → [3,1,1,2,2,2]`}
           hints={[
             "Count frequencies first. Then sort using a custom key.",
             "Key: sort by (frequency ascending, value descending) — so rarer elements come first, and for ties larger values come first.",
-            "Python's sorted is stable and accepts a tuple key: key=lambda x: (freq[x], -x).",
+            "Rust's sort_unstable_by accepts a comparator: compare by freq first, then reverse-compare by value for ties.",
           ]}
-          answer="Count frequencies. sorted(nums, key=lambda x: (freq[x], -x)) — ascending frequency, descending value for ties."
+          answer="Count frequencies. sort_unstable_by(|a, b| counts[a].cmp(&counts[b]).then(b.cmp(a))) — ascending frequency, descending value for ties."
           answerCode={pq4Code}
         />
 
@@ -547,11 +645,11 @@ Example: [1,1,2,2,2,3] → [3,1,1,2,2,2]`}
 
 Example: words=["i","love","leetcode","i","love","coding"], k=2 → ["i","love"]`}
           hints={[
-            "Count word frequencies. Build a min-heap of (-freq, word) of size... actually just heapify all and pop k times.",
-            "Storing (-freq, word) means Python's heap naturally breaks ties alphabetically for the word field.",
+            "Count word frequencies. Build a min-heap of (freq, word) — actually heapify all words then keep top k.",
+            "Storing Reverse((freq, word)) means the heap naturally breaks ties alphabetically for the word field.",
             "Pop k times from the heap — each pop gives the next most frequent (alphabetically first for ties).",
           ]}
-          answer="Count frequencies. Min-heap of (-freq, word) — heapify all words. Pop k times: each pop is the next most frequent word (alphabetical tie-breaking is automatic)."
+          answer="Count frequencies. Min-heap of Reverse((freq, word)) — heapify all words. Pop k times: each pop is the next most frequent word (alphabetical tie-breaking is automatic)."
           answerCode={pq5Code}
         />
       </Sub>

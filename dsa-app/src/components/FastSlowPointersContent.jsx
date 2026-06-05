@@ -56,378 +56,460 @@ const FSP_VISUAL = `# Fast & Slow Pointers — detecting a cycle (Floyd's Tortoi
 //  TAUGHT Q1 — Linked List Cycle Detection
 // ─────────────────────────────────────────────────────────────
 
-const FSP_Q1_BRUTE = `# class ListNode:
-#   def __init__(self, val=0, next=None):
-#     self.val = val; self.next = next
+const FSP_Q1_BRUTE = `// Simplified linked list node for educational purposes
+struct ListNode {
+    val: i32,
+    next: Option<Box<ListNode>>,
+}
 
-# Brute force: store every visited node in a set
-def has_cycle_brute(head):
-    visited = set()           # set of all nodes we've seen
-    current = head            # pointer starting at the head
+// Brute force: walk the list using index-based simulation.
+// We model the list as an array where nums[i] = next index.
+// Store every visited index in a HashSet to detect revisits.
+use std::collections::HashSet;
 
-    while current:            # walk until we reach None (end)
-        if current in visited:    # seen this node before?
-            return True           # yes — it's part of a cycle!
-        visited.add(current)      # mark node as visited
-        current = current.next    # advance to next node
+fn has_cycle_brute(nums: &[usize]) -> bool {
+    let mut visited: HashSet<usize> = HashSet::new();
+    let mut current = 0usize;           // start at index 0
 
-    return False  # reached None = no cycle
-    # Time:  O(n) — visit each node once
-    # Space: O(n) — store every node in the set`
+    loop {
+        if visited.contains(&current) { // seen this index before?
+            return true;                // yes — it's part of a cycle!
+        }
+        visited.insert(current);        // mark index as visited
+        let next = nums[current];
+        if next >= nums.len() {
+            return false;               // fell off the end → no cycle
+        }
+        current = next;                 // advance to next index
+    }
+    // Time:  O(n) — visit each index once
+    // Space: O(n) — store every index in the set`
 
-const FSP_Q1_OPT = `# Floyd's Cycle Detection: two pointers at different speeds
-def has_cycle(head):
-    slow = head   # tortoise: 1 step per iteration
-    fast = head   # hare:     2 steps per iteration
+const FSP_Q1_OPT = `// Floyd's Cycle Detection: two pointers at different speeds.
+// We simulate the linked list as an index array:
+//   nums[i] = the "next" index from node i.
 
-    while fast and fast.next:   # fast needs at least 2 nodes ahead
-        slow = slow.next         # slow hops once
-        fast = fast.next.next    # fast hops twice
+fn has_cycle(nums: &[usize]) -> bool {
+    if nums.is_empty() {
+        return false;
+    }
+    let mut slow = 0usize;   // tortoise: 1 step per iteration
+    let mut fast = 0usize;   // hare:     2 steps per iteration
 
-        if slow == fast:         # they landed on the same node!
-            return True          # a cycle must exist
+    loop {
+        slow = nums[slow];                      // slow hops once
+        let mid = nums[fast];
+        if mid >= nums.len() { return false; }  // fast fell off end
+        fast = nums[mid];                       // fast hops twice
+        if fast >= nums.len() { return false; } // fast fell off end
 
-    return False   # fast fell off the end → no cycle
-    # WHY they always meet in a cycle:
-    # Each iteration, fast gains exactly 1 step on slow.
-    # The gap shrinks by 1 every iteration → gap must reach 0.
-    # When gap = 0, they're at the same node: cycle confirmed.
-    # Time:  O(n), Space: O(1) — no set, no extra memory`
+        if slow == fast {                       // landed on the same index!
+            return true;                        // a cycle must exist
+        }
+    }
+    // WHY they always meet in a cycle:
+    // Each iteration, fast gains exactly 1 step on slow.
+    // The gap shrinks by 1 every iteration → gap must reach 0.
+    // When gap = 0, they're at the same index: cycle confirmed.
+    // Time:  O(n), Space: O(1) — no set, no extra memory`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q2 — Find the Middle of a Linked List
 // ─────────────────────────────────────────────────────────────
 
-const FSP_Q2_BRUTE = `# Brute force: count nodes, then walk to position n//2
-def find_middle_brute(head):
-    count = 0
-    current = head
-    while current:        # first pass: count all nodes
-        count += 1
-        current = current.next
+const FSP_Q2_BRUTE = `// Brute force: count nodes, then walk to position count / 2.
+// We represent the list as a Vec<i32> of values.
 
-    # second pass: walk exactly count//2 steps
-    middle_idx = count // 2   # 0-based index of the middle node
-    current = head
-    for _ in range(middle_idx):
-        current = current.next
+fn find_middle_brute(nodes: &[i32]) -> i32 {
+    let count = nodes.len();            // first pass: count all nodes
 
-    return current   # the middle node
-    # Works correctly but needs TWO full passes.
-    # Time:  O(n), Space: O(1)`
+    // second pass: walk exactly count/2 steps
+    let middle_idx = count / 2;         // 0-based index of the middle node
+    nodes[middle_idx]                   // return the middle value
+    // Works correctly but conceptually needs TWO passes.
+    // Time:  O(n), Space: O(1)
+}`
 
-const FSP_Q2_OPT = `# Single pass: when fast reaches the end, slow is at the middle
-def find_middle(head):
-    slow = head   # moves 1 step — will land at the middle
-    fast = head   # moves 2 steps — will land at or past the end
+const FSP_Q2_OPT = `// Single pass: when fast reaches the end, slow is at the middle.
+// We represent the list as a slice of values.
 
-    while fast and fast.next:   # fast needs 2 nodes available
-        slow = slow.next        # slow: +1
-        fast = fast.next.next   # fast: +2
+fn find_middle(nodes: &[i32]) -> i32 {
+    let mut slow = 0usize;   // moves 1 step — will land at the middle
+    let mut fast = 0usize;   // moves 2 steps — will land at or past the end
 
-    return slow   # slow covered half the distance fast did = middle
-    # Walk-through (odd length): 1→2→3→4→5
-    #   iter1: slow=2, fast=3
-    #   iter2: slow=3, fast=5
-    #   iter3: fast.next=None → stop. slow=3 ✅
-    #
-    # Walk-through (even length): 1→2→3→4
-    #   iter1: slow=2, fast=3
-    #   iter2: slow=3, fast=None (4.next=None) → stop. slow=3 ✅
-    #   (returns SECOND middle for even-length lists)
-    # Time:  O(n), Space: O(1) — single pass`
+    // fast needs 2 nodes available to advance
+    while fast + 1 < nodes.len() {
+        slow += 1;       // slow: +1
+        fast += 2;       // fast: +2
+    }
+
+    nodes[slow]   // slow covered half the distance fast did = middle
+    // Walk-through (odd length): [1,2,3,4,5]
+    //   iter1: slow=1, fast=2
+    //   iter2: slow=2, fast=4
+    //   fast+1=5 >= len=5 → stop. nodes[2]=3 ✅
+    //
+    // Walk-through (even length): [1,2,3,4]
+    //   iter1: slow=1, fast=2
+    //   iter2: slow=2, fast=4 → fast+1=5 >= len=4 → stop. nodes[2]=3 ✅
+    //   (returns SECOND middle for even-length lists)
+    // Time:  O(n), Space: O(1) — single pass
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q3 — Happy Number
 // ─────────────────────────────────────────────────────────────
 
-const FSP_Q3_BRUTE = `# Brute force: store each number in a set to detect the cycle
-def is_happy_brute(n):
-    def sum_of_squares(num):
-        total = 0
-        while num > 0:
-            digit = num % 10         # extract last digit
-            total += digit * digit   # square it and add
-            num //= 10               # chop off last digit
-        return total
+const FSP_Q3_BRUTE = `// Brute force: store each number in a HashSet to detect the cycle.
+use std::collections::HashSet;
 
-    seen = set()   # numbers we've already visited in the sequence
+fn is_happy_brute(mut n: i32) -> bool {
+    fn sum_of_squares(mut num: i32) -> i32 {
+        let mut total = 0;
+        while num > 0 {
+            let digit = num % 10;        // extract last digit
+            total += digit * digit;      // square it and add
+            num /= 10;                   // chop off last digit
+        }
+        total
+    }
 
-    while n != 1:
-        if n in seen:      # seen this number before → infinite loop
-            return False   # it's an unhappy number
-        seen.add(n)        # mark as seen
-        n = sum_of_squares(n)   # compute the next number in sequence
+    let mut seen: HashSet<i32> = HashSet::new();  // numbers we've visited
 
-    return True   # reached 1 → happy number! ✅
-    # Example: 19 → 82 → 68 → 100 → 1  (happy)
-    # Time:  O(log n) per step, bounded sequence length
-    # Space: O(log n) — set grows with sequence`
+    while n != 1 {
+        if seen.contains(&n) {  // seen this number before → infinite loop
+            return false;       // it's an unhappy number
+        }
+        seen.insert(n);                 // mark as seen
+        n = sum_of_squares(n);          // compute next number in sequence
+    }
 
-const FSP_Q3_OPT = `# Floyd's on the number sequence — detect cycle without a set
-def is_happy(n):
-    def get_next(num):
-        total = 0
-        while num > 0:
-            digit = num % 10         # last digit
-            total += digit * digit   # add its square
-            num //= 10               # remove last digit
-        return total
+    true   // reached 1 → happy number! ✅
+    // Example: 19 → 82 → 68 → 100 → 1  (happy)
+    // Time:  O(log n) per step, bounded sequence length
+    // Space: O(log n) — set grows with sequence
+}`
 
-    slow = n                   # moves 1 step: slow = f(slow)
-    fast = get_next(n)         # moves 2 steps: fast = f(f(fast))
+const FSP_Q3_OPT = `// Floyd's on the number sequence — detect cycle without a HashSet.
 
-    # stop when fast reaches 1 (happy) or slow meets fast (cycle)
-    while fast != 1 and slow != fast:
-        slow = get_next(slow)              # one step
-        fast = get_next(get_next(fast))    # two steps
+fn get_next(mut num: i32) -> i32 {
+    let mut total = 0;
+    while num > 0 {
+        let digit = num % 10;        // last digit
+        total += digit * digit;      // add its square
+        num /= 10;                   // remove last digit
+    }
+    total
+}
 
-    return fast == 1   # if fast landed on 1 → happy; else → cycle
-    # KEY INSIGHT: the number sequence is like a linked list.
-    # n → get_next(n) → get_next(get_next(n)) → ...
-    # Unhappy numbers form a cycle that NEVER reaches 1.
-    # Fast/slow detects that cycle. If fast hits 1, we're done.
-    # Time:  O(log n), Space: O(1) — no set needed`
+fn is_happy(n: i32) -> bool {
+    let mut slow = n;               // moves 1 step: slow = get_next(slow)
+    let mut fast = get_next(n);     // moves 2 steps: fast = get_next(get_next(fast))
+
+    // stop when fast reaches 1 (happy) or slow meets fast (cycle)
+    while fast != 1 && slow != fast {
+        slow = get_next(slow);              // one step
+        fast = get_next(get_next(fast));    // two steps
+    }
+
+    fast == 1   // if fast landed on 1 → happy; else → cycle
+    // KEY INSIGHT: the number sequence is like a linked list.
+    // n → get_next(n) → get_next(get_next(n)) → ...
+    // Unhappy numbers form a cycle that NEVER reaches 1.
+    // Fast/slow detects that cycle. If fast hits 1, we're done.
+    // Time:  O(log n), Space: O(1) — no set needed
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q4 — Find the Duplicate Number
 // ─────────────────────────────────────────────────────────────
 
-const FSP_Q4_BRUTE = `# Brute force: use a set to find the number we've seen twice
-def find_duplicate_brute(nums):
-    seen = set()
-    for num in nums:
-        if num in seen:    # this number appeared before!
-            return num     # it's the duplicate
-        seen.add(num)
-    return -1   # guaranteed to have a duplicate, won't reach here
-    # Time:  O(n), Space: O(n) — set stores n values`
+const FSP_Q4_BRUTE = `// Brute force: use a HashSet to find the number we've seen twice.
+use std::collections::HashSet;
 
-const FSP_Q4_OPT = `# Floyd's on the array — treat it as a linked list
-# nums[i] is the "next pointer" from node i to node nums[i].
-# A duplicate value means two different nodes point to the same next.
-# That creates a cycle — and the duplicate is the cycle entry!
+fn find_duplicate_brute(nums: &[usize]) -> usize {
+    let mut seen: HashSet<usize> = HashSet::new();
+    for &num in nums {
+        if seen.contains(&num) {    // this number appeared before!
+            return num;             // it's the duplicate
+        }
+        seen.insert(num);
+    }
+    usize::MAX   // guaranteed to have a duplicate, won't reach here
+    // Time:  O(n), Space: O(n) — set stores n values
+}`
 
-def find_duplicate(nums):
-    # Phase 1: find where fast and slow meet (inside the cycle)
-    slow = nums[0]          # start: follow first "pointer"
-    fast = nums[0]
+const FSP_Q4_OPT = `// Floyd's on the array — treat it as a linked list.
+// nums[i] is the "next pointer" from node i to node nums[i].
+// A duplicate value means two different nodes point to the same next.
+// That creates a cycle — and the duplicate is the cycle entry!
 
-    while True:
-        slow = nums[slow]              # follow one link
-        fast = nums[nums[fast]]        # follow two links
-        if slow == fast:               # they met inside the cycle
-            break
+fn find_duplicate(nums: &[usize]) -> usize {
+    // Phase 1: find where fast and slow meet (inside the cycle)
+    let mut slow = nums[0];          // start: follow first "pointer"
+    let mut fast = nums[0];
 
-    # Phase 2: find the cycle ENTRY POINT (= the duplicate number)
-    # Math fact: dist(head→entry) == dist(meeting_point→entry)
-    slow = nums[0]          # reset slow to the very start
-    # fast stays at the meeting point
+    loop {
+        slow = nums[slow];              // follow one link
+        fast = nums[nums[fast]];        // follow two links
+        if slow == fast {               // they met inside the cycle
+            break;
+        }
+    }
 
-    while slow != fast:
-        slow = nums[slow]   # both move one step at a time
-        fast = nums[fast]
+    // Phase 2: find the cycle ENTRY POINT (= the duplicate number)
+    // Math fact: dist(head→entry) == dist(meeting_point→entry)
+    slow = nums[0];          // reset slow to the very start
+    // fast stays at the meeting point
 
-    return slow   # where they converge = cycle entry = duplicate
-    # Walk-through: [1,3,4,2,2]
-    # Treat as: 0→1→3→2→4→2 (node i jumps to nums[i])
-    # Node 4→2 and 2→4→2 both create edges into node 2 → cycle at 2
-    # Time:  O(n), Space: O(1) — no sorting, no extra array`
+    while slow != fast {
+        slow = nums[slow];   // both move one step at a time
+        fast = nums[fast];
+    }
+
+    slow   // where they converge = cycle entry = duplicate
+    // Walk-through: [1,3,4,2,2] (as usize: [1,3,4,2,2])
+    // Treat as: 0→1→3→2→4→2 (node i jumps to nums[i])
+    // Node 4→2 and 2→4→2 both create edges into node 2 → cycle at 2
+    // Time:  O(n), Space: O(1) — no sorting, no extra array
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q5 — Linked List Cycle II (start of cycle)
 // ─────────────────────────────────────────────────────────────
 
-const FSP_Q5_BRUTE = `# Brute force: first repeated node in a set = cycle entry
-def detect_cycle_brute(head):
-    visited = set()
-    current = head
+const FSP_Q5_BRUTE = `// Brute force: first repeated index in a HashSet = cycle entry.
+use std::collections::HashSet;
 
-    while current:
-        if current in visited:   # visited before → this IS the cycle start
-            return current
-        visited.add(current)
-        current = current.next
+fn detect_cycle_brute(nums: &[usize]) -> Option<usize> {
+    let mut visited: HashSet<usize> = HashSet::new();
+    let mut current = 0usize;
 
-    return None   # no cycle found
-    # Time:  O(n), Space: O(n)`
+    loop {
+        if visited.contains(&current) {  // visited before → this IS the cycle start
+            return Some(current);
+        }
+        visited.insert(current);
+        let next = nums[current];
+        if next >= nums.len() {
+            return None;   // no cycle found
+        }
+        current = next;
+    }
+    // Time:  O(n), Space: O(n)
+}`
 
-const FSP_Q5_OPT = `# Floyd's two-phase: detect cycle, then locate its entry
-def detect_cycle(head):
-    slow = head
-    fast = head
-    found_cycle = False
+const FSP_Q5_OPT = `// Floyd's two-phase: detect cycle, then locate its entry.
+// The list is modelled as an index array: nums[i] = next index.
 
-    # Phase 1: detect cycle and find meeting point
-    while fast and fast.next:
-        slow = slow.next
-        fast = fast.next.next
-        if slow == fast:         # met inside the cycle
-            found_cycle = True
-            break
+fn detect_cycle(nums: &[usize]) -> Option<usize> {
+    if nums.is_empty() {
+        return None;
+    }
+    let mut slow = 0usize;
+    let mut fast = 0usize;
+    let mut found_cycle = false;
 
-    if not found_cycle:
-        return None   # no cycle
+    // Phase 1: detect cycle and find meeting point
+    loop {
+        slow = nums[slow];
+        let mid = nums[fast];
+        if mid >= nums.len() { break; }
+        fast = nums[mid];
+        if fast >= nums.len() { break; }
+        if slow == fast {           // met inside the cycle
+            found_cycle = true;
+            break;
+        }
+    }
 
-    # Phase 2: find cycle entry point
-    # Reset slow to head. Both pointers now move 1 step at a time.
-    # They will meet exactly at the cycle start.
-    slow = head
-    while slow != fast:
-        slow = slow.next   # 1 step
-        fast = fast.next   # 1 step
+    if !found_cycle {
+        return None;   // no cycle
+    }
 
-    return slow   # cycle entry node
+    // Phase 2: find cycle entry point.
+    // Reset slow to head. Both pointers now move 1 step at a time.
+    // They will meet exactly at the cycle start.
+    slow = 0usize;
+    while slow != fast {
+        slow = nums[slow];   // 1 step
+        fast = nums[fast];   // 1 step
+    }
 
-    # WHY Phase 2 works (the math):
-    # Let F = steps from head to cycle entry
-    # Let D = steps from cycle entry to meeting point
-    # Let C = cycle length
-    # When they meet: fast traveled F + D + C (one full loop + D extra)
-    # fast = 2 × slow → F+D+C = 2(F+D) → C-D = F
-    # So from the meeting point, (C-D) more steps = F steps = cycle entry ✅
-    # Time:  O(n), Space: O(1)`
+    Some(slow)   // cycle entry index
+
+    // WHY Phase 2 works (the math):
+    // Let F = steps from head to cycle entry
+    // Let D = steps from cycle entry to meeting point
+    // Let C = cycle length
+    // When they meet: fast traveled F + D + C (one full loop + D extra)
+    // fast = 2 × slow → F+D+C = 2(F+D) → C-D = F
+    // So from the meeting point, (C-D) more steps = F steps = cycle entry ✅
+    // Time:  O(n), Space: O(1)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  PRACTICE ANSWERS
 // ─────────────────────────────────────────────────────────────
 
-const FSP_P1_CODE = `# Palindrome Linked List — find middle, reverse second half, compare
-def is_palindrome(head):
-    # Step 1: find the middle node using slow/fast pointers
-    slow, fast = head, head
-    while fast and fast.next:
-        slow = slow.next        # slow ends at the middle
-        fast = fast.next.next
+const FSP_P1_CODE = `// Palindrome Linked List — find middle, reverse second half, compare.
+// Represented as a Vec<i32> of values for educational clarity.
 
-    # Step 2: reverse the second half of the list in-place
-    prev = None
-    curr = slow               # start reversal from the middle
-    while curr:
-        next_node = curr.next  # save next before overwriting
-        curr.next = prev       # reverse the pointer
-        prev = curr            # advance prev
-        curr = next_node       # advance curr
-    # prev is now the head of the reversed second half
+fn is_palindrome(nodes: &[i32]) -> bool {
+    if nodes.is_empty() {
+        return true;
+    }
+    // Step 1: find the middle index using slow/fast pointers
+    let mut slow = 0usize;
+    let mut fast = 0usize;
+    while fast + 1 < nodes.len() {
+        slow += 1;
+        fast += 2;
+    }
+    // slow is now the middle index
 
-    # Step 3: compare first half (head) and reversed second half (prev)
-    left, right = head, prev
-    while right:               # second half may be shorter (odd-length list)
-        if left.val != right.val:
-            return False       # mismatch → not a palindrome
-        left = left.next
-        right = right.next
+    // Step 2: build the reversed second half
+    let second_half: Vec<i32> = nodes[slow..].iter().rev().cloned().collect();
 
-    return True
-    # Time: O(n), Space: O(1) — no stack or extra array`
+    // Step 3: compare first half and reversed second half
+    let first_half = &nodes[..second_half.len()];
+    first_half == second_half.as_slice()
+    // Time: O(n), Space: O(n) for the reversed slice
+    // (An in-place O(1) version would mutate the slice in place)
+}`
 
-const FSP_P2_CODE = `# Reorder List: L0→L1→...→Ln  becomes  L0→Ln→L1→Ln-1→...
-def reorder_list(head):
-    if not head:
-        return
+const FSP_P2_CODE = `// Reorder List: L0→L1→...→Ln  becomes  L0→Ln→L1→Ln-1→...
+// We work with a Vec<i32> of values and return the reordered values.
 
-    # Step 1: find the middle
-    slow, fast = head, head
-    while fast and fast.next:
-        slow = slow.next
-        fast = fast.next.next
+fn reorder_list(nodes: Vec<i32>) -> Vec<i32> {
+    if nodes.is_empty() {
+        return nodes;
+    }
 
-    # Step 2: reverse the second half
-    prev = None
-    curr = slow.next      # second half starts after the middle
-    slow.next = None      # cut the list in half (important!)
-    while curr:
-        tmp = curr.next
-        curr.next = prev
-        prev = curr
-        curr = tmp
-    # prev = head of reversed second half
+    // Step 1: find the middle index
+    let mut slow = 0usize;
+    let mut fast = 0usize;
+    while fast + 1 < nodes.len() {
+        slow += 1;
+        fast += 2;
+    }
 
-    # Step 3: interleave first half and reversed second half
-    first, second = head, prev
-    while second:
-        tmp1, tmp2 = first.next, second.next
-        first.next = second   # insert from second into first
-        second.next = tmp1    # link second node back to first half
-        first = tmp1          # advance first
-        second = tmp2         # advance second
-    # Time: O(n), Space: O(1)`
+    // Step 2: split and reverse the second half
+    let first_half = nodes[..=slow].to_vec();
+    let second_half: Vec<i32> = nodes[slow + 1..].iter().rev().cloned().collect();
 
-const FSP_P3_CODE = `# Find All Duplicates: use sign of nums[index] as a visited marker
-def find_duplicates(nums):
-    result = []
+    // Step 3: interleave first half and reversed second half
+    let mut result = Vec::with_capacity(nodes.len());
+    let mut i = 0usize;
+    let mut j = 0usize;
+    while i < first_half.len() || j < second_half.len() {
+        if i < first_half.len() {
+            result.push(first_half[i]);   // take from front
+            i += 1;
+        }
+        if j < second_half.len() {
+            result.push(second_half[j]);  // take from back
+            j += 1;
+        }
+    }
+    result
+    // Time: O(n), Space: O(n)
+}`
 
-    for num in nums:
-        index = abs(num) - 1          # map value → 0-based index
+const FSP_P3_CODE = `// Find All Duplicates: use sign of nums[index] as a visited marker.
 
-        if nums[index] < 0:           # index already marked → value seen before
-            result.append(abs(num))   # this value appears twice
-        else:
-            nums[index] = -nums[index]   # mark index as "visited" (negate value)
+fn find_duplicates(nums: &mut Vec<i32>) -> Vec<i32> {
+    let mut result = Vec::new();
 
-    return result
-    # Why it works: value k "lives at" index k-1.
-    # First visit to k: negate nums[k-1].
-    # Second visit to k: nums[k-1] is already negative → duplicate!
-    # Walk-through: [4,3,2,7,8,2,3,1]
-    # num=4: negate nums[3]=7  → ...,-7,...
-    # num=3: negate nums[2]=2  → ...,-2,-7,...
-    # num=2: negate nums[1]=3  → ...,-3,-2,-7,...
-    # num=7: negate nums[6]=3  → ...,-3,...
-    # num=2: nums[1]=-3 < 0 → result=[2]
-    # num=3: nums[2]=-2 < 0 → result=[2,3] ✅
-    # Time: O(n), Space: O(1) — result doesn't count as extra`
+    for i in 0..nums.len() {
+        let index = (nums[i].abs() - 1) as usize;  // map value → 0-based index
 
-const FSP_P4_CODE = `# Circular Array Loop: fast/slow with direction constraint
-def circular_array_loop(nums):
-    n = len(nums)
+        if nums[index] < 0 {                        // index already marked → value seen before
+            result.push(nums[i].abs());             // this value appears twice
+        } else {
+            nums[index] = -nums[index];             // mark index as "visited" (negate value)
+        }
+    }
 
-    def next_idx(i):
-        return (i + nums[i]) % n   # circular jump (wrap around)
+    result
+    // Why it works: value k "lives at" index k-1.
+    // First visit to k: negate nums[k-1].
+    // Second visit to k: nums[k-1] is already negative → duplicate!
+    // Walk-through: [4,3,2,7,8,2,3,1]
+    // num=4: negate nums[3]=7  → ...,-7,...
+    // num=3: negate nums[2]=2  → ...,-2,-7,...
+    // num=2: negate nums[1]=3  → ...,-3,-2,-7,...
+    // num=7: negate nums[6]=3  → ...,-3,...
+    // num=2: nums[1]=-3 < 0 → result=[2]
+    // num=3: nums[2]=-2 < 0 → result=[2,3] ✅
+    // Time: O(n), Space: O(1) — result doesn't count as extra
+}`
 
-    for i in range(n):
-        slow, fast = i, i
+const FSP_P4_CODE = `// Circular Array Loop: fast/slow with direction constraint.
 
-        # direction must stay consistent: all values same sign
-        while (nums[slow] * nums[fast] > 0 and
-               nums[slow] * nums[next_idx(fast)] > 0):
-            slow = next_idx(slow)
-            fast = next_idx(next_idx(fast))
+fn circular_array_loop(nums: &[i32]) -> bool {
+    let n = nums.len() as i32;
 
-            if slow == fast:                   # cycle detected!
-                if slow == next_idx(slow):     # single-element self-loop → invalid
-                    break
-                return True
+    let next_idx = |i: usize| -> usize {
+        (((i as i32 + nums[i]) % n + n) % n) as usize  // circular jump (wrap around)
+    };
 
-    return False
-    # Time: O(n²) — for each starting point, we run fast/slow
-    # Space: O(1)`
+    for i in 0..nums.len() {
+        let mut slow = i;
+        let mut fast = i;
 
-const FSP_P5_CODE = `# Smallest Missing Positive: cyclic sort, then find first mismatch
-def first_missing_positive(nums):
-    n = len(nums)
+        // direction must stay consistent: all values same sign
+        while nums[slow] * nums[fast] > 0
+            && nums[slow] * nums[next_idx(fast)] > 0
+        {
+            slow = next_idx(slow);
+            fast = next_idx(next_idx(fast));
 
-    # cyclic sort: place value k at index k-1
-    i = 0
-    while i < n:
-        correct = nums[i] - 1   # where does nums[i] belong?
-        # only move values in the valid range [1..n]
-        # and skip if already in correct place (avoids infinite loop)
-        if 1 <= nums[i] <= n and nums[correct] != nums[i]:
-            nums[i], nums[correct] = nums[correct], nums[i]  # swap
-        else:
-            i += 1   # already correct or out of range
+            if slow == fast {                       // cycle detected!
+                if slow == next_idx(slow) {         // single-element self-loop → invalid
+                    break;
+                }
+                return true;
+            }
+        }
+    }
 
-    # find the first index where the value is wrong
-    for i in range(n):
-        if nums[i] != i + 1:   # position i should hold value i+1
-            return i + 1       # i+1 is the smallest missing positive
+    false
+    // Time: O(n²) — for each starting point, we run fast/slow
+    // Space: O(1)
+}`
 
-    return n + 1   # all 1..n present → answer is n+1
-    # Example: [3,4,-1,1] → after cyclic sort: [1,-1,3,4]
-    # index 0: nums[0]=1=0+1 ✅
-    # index 1: nums[1]=-1 ≠ 2 → return 2 ✅
-    # Time: O(n), Space: O(1) — in-place sort`
+const FSP_P5_CODE = `// Smallest Missing Positive: cyclic sort, then find first mismatch.
+
+fn first_missing_positive(nums: &mut Vec<i32>) -> i32 {
+    let n = nums.len();
+
+    // cyclic sort: place value k at index k-1
+    let mut i = 0usize;
+    while i < n {
+        let correct = nums[i] - 1;   // where does nums[i] belong?
+        // only move values in the valid range [1..n]
+        // and skip if already in correct place (avoids infinite loop)
+        if nums[i] >= 1 && nums[i] <= n as i32 && nums[correct as usize] != nums[i] {
+            nums.swap(i, correct as usize);  // swap into correct slot
+        } else {
+            i += 1;   // already correct or out of range
+        }
+    }
+
+    // find the first index where the value is wrong
+    for i in 0..n {
+        if nums[i] != (i as i32 + 1) {   // position i should hold value i+1
+            return i as i32 + 1;          // i+1 is the smallest missing positive
+        }
+    }
+
+    n as i32 + 1   // all 1..n present → answer is n+1
+    // Example: [3,4,-1,1] → after cyclic sort: [1,-1,3,4]
+    // index 0: nums[0]=1=0+1 ✅
+    // index 1: nums[1]=-1 ≠ 2 → return 2 ✅
+    // Time: O(n), Space: O(1) — in-place sort
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  MAIN EXPORT
@@ -475,7 +557,7 @@ export default function FastSlowPointersContent() {
         <p className="found-p">
           Here&apos;s the algorithm traced step-by-step on a list with a cycle:
         </p>
-        <CodeBlock code={FSP_VISUAL} lang="python" />
+        <CodeBlock code={FSP_VISUAL} lang="rust" />
       </Sub>
 
       {/* ══════════════════════════════════════════ */}
@@ -500,7 +582,7 @@ export default function FastSlowPointersContent() {
           answer="The aha moment: in a cycle, fast gains 1 step on slow per iteration. The gap between them shrinks by 1 each step — it MUST eventually hit zero. When it does, they're at the same node. O(1) space, no set needed."
           bruteCode={FSP_Q1_BRUTE}
           optCode={FSP_Q1_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -520,7 +602,7 @@ export default function FastSlowPointersContent() {
           answer="Fast moves 2x as fast as slow. When fast covers n steps, slow covers n/2 steps = the middle. One pass through the list, no counting. For even-length lists, slow naturally lands on the second middle."
           bruteCode={FSP_Q2_BRUTE}
           optCode={FSP_Q2_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -540,7 +622,7 @@ export default function FastSlowPointersContent() {
           answer="The number sequence either terminates at 1 or enters a cycle. Floyd's fast/slow detects cycles in O(1) space — no set needed. If fast == 1 → happy. If fast == slow (and not 1) → stuck in a cycle → unhappy."
           bruteCode={FSP_Q3_BRUTE}
           optCode={FSP_Q3_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -560,7 +642,7 @@ export default function FastSlowPointersContent() {
           answer="Two-phase Floyd's. Phase 1: find where slow and fast meet (inside the cycle). Phase 2: reset slow to nums[0], advance both 1 step at a time. Where they next meet = cycle entry = the duplicate. All in O(n) time, O(1) space."
           bruteCode={FSP_Q4_BRUTE}
           optCode={FSP_Q4_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -581,7 +663,7 @@ export default function FastSlowPointersContent() {
           answer="Floyd's tells us: distance(head→cycle_entry) equals distance(meeting_point→cycle_entry). So after finding the meeting point, reset one pointer to head, move both at speed 1 — they converge at the cycle entry. Proven by the math in the code comments."
           bruteCode={FSP_Q5_BRUTE}
           optCode={FSP_Q5_OPT}
-          lang="python"
+          lang="rust"
         />
 
       </Sub>
@@ -612,9 +694,13 @@ export default function FastSlowPointersContent() {
           hint="Three steps: (1) find the middle using slow/fast, (2) reverse the second half in-place, (3) compare the first half and the reversed second half node by node."
           answer="Find middle → reverse second half → compare both halves. Three passes over the list, but each is O(n). Total O(n) time, O(1) space. Classic fast/slow + reversal combo."
           answerCode={FSP_P1_CODE}
-          bruteCode={`# O(n) time, O(n) space: copy values to a list, check palindrome\ndef is_palindrome_brute(head):\n    vals = []\n    while head:          # collect all values into a list\n        vals.append(head.val)\n        head = head.next\n    return vals == vals[::-1]  # compare to reversed version`}
+          bruteCode={`// O(n) time, O(n) space: copy values to a Vec, check palindrome
+fn is_palindrome_brute(nodes: &[i32]) -> bool {
+    let reversed: Vec<i32> = nodes.iter().rev().cloned().collect();
+    nodes == reversed.as_slice()  // compare original to reversed
+}`}
           optCode={FSP_P1_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -633,9 +719,24 @@ export default function FastSlowPointersContent() {
           hint="Three steps: (1) find middle with slow/fast, (2) reverse the second half, (3) merge first half and reversed second half by alternating nodes."
           answer="Same three steps as Palindrome Linked List — but instead of comparing, we interleave. Split at middle, reverse second half, then merge: first→second→first→second... O(n) time, O(1) space."
           answerCode={FSP_P2_CODE}
-          bruteCode={`# O(n) time, O(n) space: put nodes in a list, rebuild\ndef reorder_list_brute(head):\n    nodes = []\n    curr = head\n    while curr:        # collect all node objects\n        nodes.append(curr)\n        curr = curr.next\n    l, r = 0, len(nodes) - 1\n    while l < r:       # rebuild connections\n        nodes[l].next = nodes[r]\n        l += 1\n        if l == r: break\n        nodes[r].next = nodes[l]\n        r -= 1\n    nodes[l].next = None`}
+          bruteCode={`// O(n) time, O(n) space: collect values, rebuild interleaved
+fn reorder_list_brute(nodes: Vec<i32>) -> Vec<i32> {
+    let mut result = Vec::with_capacity(nodes.len());
+    let mut l = 0usize;
+    let mut r = nodes.len().saturating_sub(1);
+    while l <= r {
+        result.push(nodes[l]);   // take from front
+        if l != r {
+            result.push(nodes[r]);   // take from back
+        }
+        l += 1;
+        if r == 0 { break; }
+        r -= 1;
+    }
+    result
+}`}
           optCode={FSP_P2_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -653,9 +754,22 @@ export default function FastSlowPointersContent() {
           hint="The constraint 'values in [1,n]' means every value is a valid index. Use the SIGN of nums[abs(num)-1] as a visited flag: negate on first visit, detect the negative on second visit."
           answer="For each number n, look at nums[n-1]. Negate it to mark 'visited'. If it's already negative, n appeared before → it's a duplicate. Uses sign bits as a free hash map. O(n) time, O(1) space."
           answerCode={FSP_P3_CODE}
-          bruteCode={`# O(n) time, O(n) space: use a set\ndef find_duplicates_brute(nums):\n    seen = set()\n    result = []\n    for num in nums:\n        if num in seen:\n            result.append(num)  # seen before → duplicate\n        seen.add(num)\n    return result`}
+          bruteCode={`// O(n) time, O(n) space: use a HashSet
+use std::collections::HashSet;
+
+fn find_duplicates_brute(nums: &[i32]) -> Vec<i32> {
+    let mut seen: HashSet<i32> = HashSet::new();
+    let mut result = Vec::new();
+    for &num in nums {
+        if seen.contains(&num) {
+            result.push(num);   // seen before → duplicate
+        }
+        seen.insert(num);
+    }
+    result
+}`}
           optCode={FSP_P3_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -673,9 +787,28 @@ export default function FastSlowPointersContent() {
           hint="Apply fast/slow from each starting index. Enforce direction consistency: all values in the cycle path must share the same sign. Stop if direction flips or if slow==fast after just 1 step (self-loop)."
           answer="For each start, run fast/slow. Direction consistency check: nums[slow] * nums[next_idx(fast)] must be positive (same sign). If slow==fast, verify it's not a 1-element self-loop. Return True if a valid cycle is found."
           answerCode={FSP_P4_CODE}
-          bruteCode={`# O(n²) brute: follow each starting position, track visited path\ndef circular_array_loop_brute(nums):\n    n = len(nums)\n    for i in range(n):\n        seen = set()\n        idx = i\n        direction = nums[i] > 0\n        while True:\n            if nums[idx] > 0 != direction: break  # direction changed\n            if idx in seen:\n                return len(seen) > 1  # cycle found, check length\n            seen.add(idx)\n            idx = (idx + nums[idx]) % n\n    return False`}
+          bruteCode={`// O(n²) brute: follow each starting position, track visited path
+use std::collections::HashSet;
+
+fn circular_array_loop_brute(nums: &[i32]) -> bool {
+    let n = nums.len() as i32;
+    for i in 0..nums.len() {
+        let mut seen: HashSet<usize> = HashSet::new();
+        let mut idx = i;
+        let forward = nums[i] > 0;
+        loop {
+            if (nums[idx] > 0) != forward { break; }  // direction changed
+            if seen.contains(&idx) {
+                return seen.len() > 1;  // valid cycle found
+            }
+            seen.insert(idx);
+            idx = (((idx as i32 + nums[idx]) % n + n) % n) as usize;
+        }
+    }
+    false
+}`}
           optCode={FSP_P4_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -695,9 +828,24 @@ export default function FastSlowPointersContent() {
           hint="The answer is always in [1, n+1]. Do a cyclic sort: put number k at index k-1 (only for values in [1,n]). Then scan for the first index where nums[i] != i+1 — that's the missing positive."
           answer="Cyclic sort places each value in its correct slot. One swap per element on average → O(n) total. After sorting, the first position that doesn't have its expected value reveals the answer. O(n) time, O(1) space."
           answerCode={FSP_P5_CODE}
-          bruteCode={`# O(n log n): sort then find first gap\ndef first_missing_positive_brute(nums):\n    nums = sorted(set(nums))   # sort and deduplicate\n    missing = 1\n    for num in nums:\n        if num == missing:\n            missing += 1       # this positive is present, check next\n    return missing`}
+          bruteCode={`// O(n log n): sort then find first gap
+fn first_missing_positive_brute(nums: &[i32]) -> i32 {
+    let mut sorted: Vec<i32> = nums.iter()
+        .filter(|&&x| x > 0)
+        .cloned()
+        .collect();
+    sorted.sort_unstable();
+    sorted.dedup();               // remove duplicates
+    let mut missing = 1i32;
+    for num in sorted {
+        if num == missing {
+            missing += 1;         // this positive is present, check next
+        }
+    }
+    missing
+}`}
           optCode={FSP_P5_CODE}
-          lang="python"
+          lang="rust"
         />
 
       </Sub>

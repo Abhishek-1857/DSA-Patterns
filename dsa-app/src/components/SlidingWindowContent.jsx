@@ -55,388 +55,495 @@ const SW_VISUAL = `# Maximum Sum Subarray of size k  —  nums=[2,1,5,1,3,2], k=
 //  TAUGHT Q1 — Maximum Sum Subarray of Size K
 // ─────────────────────────────────────────────────────────────
 
-const SW_Q1_BRUTE = `# Brute force: sum every possible window of size k from scratch
-def max_sum_subarray_brute(nums, k):
-    max_sum = 0           # largest window sum found so far
-    n = len(nums)         # total number of elements
+const SW_Q1_BRUTE = `// Brute force: sum every possible window of size k from scratch
+fn max_sum_subarray_brute(nums: &[i32], k: usize) -> i32 {
+    let mut max_sum = 0i32;    // largest window sum found so far
+    let n = nums.len();        // total number of elements
 
-    for i in range(n - k + 1):     # i = start of window (0 to n-k)
-        window_sum = 0             # reset sum for each fresh window
-        for j in range(i, i + k): # j walks through k elements in this window
-            window_sum += nums[j]  # accumulate the window sum
-        max_sum = max(max_sum, window_sum)  # keep the largest
+    for i in 0..=(n - k) {              // i = start of window (0 to n-k)
+        let mut window_sum = 0i32;      // reset sum for each fresh window
+        for j in i..(i + k) {          // j walks through k elements in this window
+            window_sum += nums[j];      // accumulate the window sum
+        }
+        max_sum = max_sum.max(window_sum);  // keep the largest
+    }
 
-    return max_sum
-    # Time:  O(n * k) — outer loop n times, inner sums k elements each
-    # Space: O(1)     — only a handful of integer variables`
+    max_sum
+    // Time:  O(n * k) — outer loop n times, inner sums k elements each
+    // Space: O(1)     — only a handful of integer variables
+}`
 
-const SW_Q1_OPT = `# Sliding Window: keep a running sum, slide one element at a time
-def max_sum_subarray(nums, k):
-    # build the first window (sum the first k elements)
-    window_sum = sum(nums[:k])  # initial window sum
-    max_sum = window_sum        # first window is our starting best
+const SW_Q1_OPT = `// Sliding Window: keep a running sum, slide one element at a time
+fn max_sum_subarray(nums: &[i32], k: usize) -> i32 {
+    // build the first window (sum the first k elements)
+    let mut window_sum: i32 = nums[..k].iter().sum();  // initial window sum
+    let mut max_sum = window_sum;                       // first window is our starting best
 
-    # slide from position k to the end of the array
-    for i in range(k, len(nums)):
-        window_sum += nums[i]       # add element entering from right
-        window_sum -= nums[i - k]   # remove element leaving from left
-        max_sum = max(max_sum, window_sum)  # update if this window is better
+    // slide from position k to the end of the array
+    for i in k..nums.len() {
+        window_sum += nums[i];          // add element entering from right
+        window_sum -= nums[i - k];      // remove element leaving from left
+        max_sum = max_sum.max(window_sum);  // update if this window is better
+    }
 
-    return max_sum
-    # Walk-through: [2,1,5,1,3,2], k=3
-    # First window: sum=8
-    # i=3: 8 + 1 - 2 = 7
-    # i=4: 7 + 3 - 1 = 9  ← max!
-    # i=5: 9 + 2 - 5 = 6
-    # Answer: 9 ✅
-    # Time:  O(n) — each element processed exactly once
-    # Space: O(1)`
+    max_sum
+    // Walk-through: [2,1,5,1,3,2], k=3
+    // First window: sum=8
+    // i=3: 8 + 1 - 2 = 7
+    // i=4: 7 + 3 - 1 = 9  ← max!
+    // i=5: 9 + 2 - 5 = 6
+    // Answer: 9 ✅
+    // Time:  O(n) — each element processed exactly once
+    // Space: O(1)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q2 — Longest Substring Without Repeating Characters
 // ─────────────────────────────────────────────────────────────
 
-const SW_Q2_BRUTE = `# Brute force: try every possible substring
-def length_of_longest_substring_brute(s):
-    n = len(s)
-    max_len = 0   # longest valid (no-repeat) window found
+const SW_Q2_BRUTE = `// Brute force: try every possible substring
+fn length_of_longest_substring_brute(s: &str) -> usize {
+    let chars: Vec<char> = s.chars().collect();
+    let n = chars.len();
+    let mut max_len = 0usize;  // longest valid (no-repeat) window found
 
-    for i in range(n):              # try every possible start position
-        seen = set()                # characters currently in this window
-        for j in range(i, n):      # extend window rightward
-            if s[j] in seen:       # duplicate found!
-                break              # this window is invalid, stop extending
-            seen.add(s[j])         # new unique char, add it
-            max_len = max(max_len, j - i + 1)  # valid window — record length
+    for i in 0..n {                          // try every possible start position
+        let mut seen = std::collections::HashSet::new();  // characters currently in this window
+        for j in i..n {                      // extend window rightward
+            if seen.contains(&chars[j]) {    // duplicate found!
+                break;                       // this window is invalid, stop extending
+            }
+            seen.insert(chars[j]);           // new unique char, add it
+            max_len = max_len.max(j - i + 1);  // valid window — record length
+        }
+    }
 
-    return max_len
-    # Time:  O(n²) — nested loops
-    # Space: O(min(n, 26)) — set holds unique chars in window`
+    max_len
+    // Time:  O(n²) — nested loops
+    // Space: O(min(n, 26)) — set holds unique chars in window
+}`
 
-const SW_Q2_OPT = `# Sliding Window: track the last-seen index of each character
-def length_of_longest_substring(s):
-    last_seen = {}  # char → index where we last saw it
-    left = 0        # left edge of current valid window
-    max_len = 0     # longest window with no repeating characters
+const SW_Q2_OPT = `// Sliding Window: track the last-seen index of each character
+fn length_of_longest_substring(s: &str) -> usize {
+    use std::collections::HashMap;
+    let chars: Vec<char> = s.chars().collect();
+    let mut last_seen: HashMap<char, usize> = HashMap::new();  // char → index where we last saw it
+    let mut left = 0usize;   // left edge of current valid window
+    let mut max_len = 0usize; // longest window with no repeating characters
 
-    for right in range(len(s)):
-        char = s[right]    # current character being added
+    for right in 0..chars.len() {
+        let c = chars[right];    // current character being added
 
-        # if char is inside our window (last seen at or after left):
-        if char in last_seen and last_seen[char] >= left:
-            # jump left pointer past the previous occurrence
-            left = last_seen[char] + 1   # shrink window from left
+        // if char is inside our window (last seen at or after left):
+        if let Some(&prev) = last_seen.get(&c) {
+            if prev >= left {
+                // jump left pointer past the previous occurrence
+                left = prev + 1;   // shrink window from left
+            }
+        }
 
-        last_seen[char] = right                   # update position
-        max_len = max(max_len, right - left + 1)  # record window size
+        last_seen.insert(c, right);                    // update position
+        max_len = max_len.max(right - left + 1);       // record window size
+    }
 
-    return max_len
-    # Walk-through: "abcabcbb"
-    # r=0 a: window=a,   len=1
-    # r=1 b: window=ab,  len=2
-    # r=2 c: window=abc, len=3
-    # r=3 a: a at 0, left jumps to 1,  window=bca, len=3
-    # r=4 b: b at 1, left jumps to 2,  window=cab, len=3
-    # r=5 c: c at 2, left jumps to 3,  window=abc, len=3
-    # r=6 b: b at 4, left jumps to 5,  window=cb,  len=2
-    # r=7 b: b at 6, left jumps to 7,  window=b,   len=1
-    # Answer: 3 ✅
-    # Time:  O(n), Space: O(min(n, 26))`
+    max_len
+    // Walk-through: "abcabcbb"
+    // r=0 a: window=a,   len=1
+    // r=1 b: window=ab,  len=2
+    // r=2 c: window=abc, len=3
+    // r=3 a: a at 0, left jumps to 1,  window=bca, len=3
+    // r=4 b: b at 1, left jumps to 2,  window=cab, len=3
+    // r=5 c: c at 2, left jumps to 3,  window=abc, len=3
+    // r=6 b: b at 4, left jumps to 5,  window=cb,  len=2
+    // r=7 b: b at 6, left jumps to 7,  window=b,   len=1
+    // Answer: 3 ✅
+    // Time:  O(n), Space: O(min(n, 26))
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q3 — Minimum Size Subarray Sum
 // ─────────────────────────────────────────────────────────────
 
-const SW_Q3_BRUTE = `# Brute force: try every subarray, check if sum meets target
-def min_subarray_len_brute(target, nums):
-    n = len(nums)
-    min_len = float('inf')   # infinity = no valid window found yet
+const SW_Q3_BRUTE = `// Brute force: try every subarray, check if sum meets target
+fn min_subarray_len_brute(target: i32, nums: &[i32]) -> usize {
+    let n = nums.len();
+    let mut min_len = usize::MAX;   // usize::MAX = no valid window found yet
 
-    for i in range(n):                  # try every starting position
-        current_sum = 0
-        for j in range(i, n):          # extend window rightward
-            current_sum += nums[j]     # grow the sum
-            if current_sum >= target:  # found a valid window!
-                min_len = min(min_len, j - i + 1)  # record its length
-                break                  # no need to grow this window further
+    for i in 0..n {                          // try every starting position
+        let mut current_sum = 0i32;
+        for j in i..n {                      // extend window rightward
+            current_sum += nums[j];          // grow the sum
+            if current_sum >= target {       // found a valid window!
+                min_len = min_len.min(j - i + 1);  // record its length
+                break;                       // no need to grow this window further
+            }
+        }
+    }
 
-    return min_len if min_len != float('inf') else 0
-    # Time:  O(n²), Space: O(1)`
+    if min_len == usize::MAX { 0 } else { min_len }
+    // Time:  O(n²), Space: O(1)
+}`
 
-const SW_Q3_OPT = `# Variable Sliding Window: shrink greedily once window is valid
-def min_subarray_len(target, nums):
-    left = 0               # left edge of window
-    current_sum = 0        # sum of elements in the window
-    min_len = float('inf') # smallest valid window found
+const SW_Q3_OPT = `// Variable Sliding Window: shrink greedily once window is valid
+fn min_subarray_len(target: i32, nums: &[i32]) -> usize {
+    let mut left = 0usize;          // left edge of window
+    let mut current_sum = 0i32;     // sum of elements in the window
+    let mut min_len = usize::MAX;   // smallest valid window found
 
-    for right in range(len(nums)):   # expand window on the right
-        current_sum += nums[right]   # add new element
+    for right in 0..nums.len() {    // expand window on the right
+        current_sum += nums[right]; // add new element
 
-        # while window sum >= target, it's valid — try to shrink
-        while current_sum >= target:
-            min_len = min(min_len, right - left + 1)  # record length
-            current_sum -= nums[left]  # remove leftmost element
-            left += 1                  # shrink window from left
+        // while window sum >= target, it's valid — try to shrink
+        while current_sum >= target {
+            min_len = min_len.min(right - left + 1);  // record length
+            current_sum -= nums[left];  // remove leftmost element
+            left += 1;                  // shrink window from left
+        }
+    }
 
-    return min_len if min_len != float('inf') else 0
-    # Walk-through: target=7, nums=[2,3,1,2,4,3]
-    # right=0: sum=2  (< 7)
-    # right=1: sum=5  (< 7)
-    # right=2: sum=6  (< 7)
-    # right=3: sum=8  (≥ 7!) min=4, shrink: sum=6, left=1
-    # right=4: sum=10 (≥ 7!) min=3, shrink: sum=7 → min=3, shrink: sum=4, left=3
-    # right=5: sum=7  (≥ 7!) min=2 ✅
-    # Time:  O(n) — each element enters and leaves the window at most once
-    # Space: O(1)`
+    if min_len == usize::MAX { 0 } else { min_len }
+    // Walk-through: target=7, nums=[2,3,1,2,4,3]
+    // right=0: sum=2  (< 7)
+    // right=1: sum=5  (< 7)
+    // right=2: sum=6  (< 7)
+    // right=3: sum=8  (≥ 7!) min=4, shrink: sum=6, left=1
+    // right=4: sum=10 (≥ 7!) min=3, shrink: sum=7 → min=3, shrink: sum=4, left=3
+    // right=5: sum=7  (≥ 7!) min=2 ✅
+    // Time:  O(n) — each element enters and leaves the window at most once
+    // Space: O(1)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q4 — Longest Substring with K Distinct Characters
 // ─────────────────────────────────────────────────────────────
 
-const SW_Q4_BRUTE = `# Brute force: try every start, extend until too many distinct chars
-def longest_k_distinct_brute(s, k):
-    n = len(s)
-    max_len = 0
+const SW_Q4_BRUTE = `// Brute force: try every start, extend until too many distinct chars
+fn longest_k_distinct_brute(s: &str, k: usize) -> usize {
+    use std::collections::HashMap;
+    let chars: Vec<char> = s.chars().collect();
+    let n = chars.len();
+    let mut max_len = 0usize;
 
-    for i in range(n):
-        freq = {}                              # char frequencies in window
-        for j in range(i, n):
-            freq[s[j]] = freq.get(s[j], 0) + 1   # add char
-            if len(freq) <= k:                # still within k distinct
-                max_len = max(max_len, j - i + 1)
-            else:
-                break                         # too many distinct, stop
+    for i in 0..n {
+        let mut freq: HashMap<char, i32> = HashMap::new();  // char frequencies in window
+        for j in i..n {
+            *freq.entry(chars[j]).or_insert(0) += 1;        // add char
+            if freq.len() <= k {                             // still within k distinct
+                max_len = max_len.max(j - i + 1);
+            } else {
+                break;                                       // too many distinct, stop
+            }
+        }
+    }
 
-    return max_len
-    # Time:  O(n²), Space: O(k)`
+    max_len
+    // Time:  O(n²), Space: O(k)
+}`
 
-const SW_Q4_OPT = `# Sliding Window with frequency map
-def longest_k_distinct(s, k):
-    freq = {}    # char → count of occurrences in current window
-    left = 0     # left edge
-    max_len = 0  # longest valid window
+const SW_Q4_OPT = `// Sliding Window with frequency map
+fn longest_k_distinct(s: &str, k: usize) -> usize {
+    use std::collections::HashMap;
+    let chars: Vec<char> = s.chars().collect();
+    let mut freq: HashMap<char, i32> = HashMap::new();  // char → count in current window
+    let mut left = 0usize;   // left edge
+    let mut max_len = 0usize; // longest valid window
 
-    for right in range(len(s)):
-        char = s[right]
-        freq[char] = freq.get(char, 0) + 1    # add char to window
+    for right in 0..chars.len() {
+        let c = chars[right];
+        *freq.entry(c).or_insert(0) += 1;    // add char to window
 
-        # if we now have more than k distinct chars, shrink from left
-        while len(freq) > k:
-            left_char = s[left]
-            freq[left_char] -= 1         # reduce that char's count
-            if freq[left_char] == 0:
-                del freq[left_char]      # remove from map when count hits 0
-            left += 1                    # shrink window
+        // if we now have more than k distinct chars, shrink from left
+        while freq.len() > k {
+            let left_char = chars[left];
+            let count = freq.entry(left_char).or_insert(0);
+            *count -= 1;                      // reduce that char's count
+            if *count == 0 {
+                freq.remove(&left_char);      // remove from map when count hits 0
+            }
+            left += 1;                        // shrink window
+        }
 
-        max_len = max(max_len, right - left + 1)  # valid window
+        max_len = max_len.max(right - left + 1);  // valid window
+    }
 
-    return max_len
-    # Walk-through: s="araaci", k=2
-    # r=0 a: freq={a:1},       len=1
-    # r=1 r: freq={a:1,r:1},   len=2
-    # r=2 a: freq={a:2,r:1},   len=3
-    # r=3 a: freq={a:3,r:1},   len=4  ← max!
-    # r=4 c: 3 distinct > k=2 → shrink: remove 'a'→{a:2,r:1,c:1}→still 3
-    #   remove 'r'→{a:2,c:1} = 2 ✅  left=2, len=3
-    # r=5 i: 3 > 2 → shrink to {c:1,i:1}, left=5, len=1
-    # Answer: 4 ✅
-    # Time:  O(n), Space: O(k)`
+    max_len
+    // Walk-through: s="araaci", k=2
+    // r=0 a: freq={a:1},       len=1
+    // r=1 r: freq={a:1,r:1},   len=2
+    // r=2 a: freq={a:2,r:1},   len=3
+    // r=3 a: freq={a:3,r:1},   len=4  ← max!
+    // r=4 c: 3 distinct > k=2 → shrink: remove 'a'→{a:2,r:1,c:1}→still 3
+    //   remove 'r'→{a:2,c:1} = 2 ✅  left=2, len=3
+    // r=5 i: 3 > 2 → shrink to {c:1,i:1}, left=5, len=1
+    // Answer: 4 ✅
+    // Time:  O(n), Space: O(k)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  TAUGHT Q5 — Permutation in String
 // ─────────────────────────────────────────────────────────────
 
-const SW_Q5_BRUTE = `# Brute force: slide a window, rebuild frequency count each time
-def check_inclusion_brute(s1, s2):
-    from collections import Counter
+const SW_Q5_BRUTE = `// Brute force: slide a window, rebuild frequency count each time
+fn check_inclusion_brute(s1: &str, s2: &str) -> bool {
+    use std::collections::HashMap;
 
-    if len(s1) > len(s2):
-        return False
+    if s1.len() > s2.len() {
+        return false;
+    }
 
-    s1_count = Counter(s1)   # target frequencies we need to match
+    let s1_chars: Vec<char> = s1.chars().collect();
+    let s2_chars: Vec<char> = s2.chars().collect();
+    let m = s1_chars.len();
 
-    # check every window of size len(s1) in s2
-    for i in range(len(s2) - len(s1) + 1):
-        window = s2[i : i + len(s1)]     # extract this window substring
-        if Counter(window) == s1_count:  # same character frequencies?
-            return True                  # it's a permutation!
+    // build target frequencies from s1
+    let mut s1_count: HashMap<char, i32> = HashMap::new();
+    for &c in &s1_chars {
+        *s1_count.entry(c).or_insert(0) += 1;
+    }
 
-    return False
-    # Time:  O(n * m) — for each of n windows, Counter takes O(m)
-    # Space: O(m)     — Counter stores at most m unique characters`
+    // check every window of size m in s2
+    for i in 0..=(s2_chars.len() - m) {
+        let mut window: HashMap<char, i32> = HashMap::new();
+        for j in i..(i + m) {
+            *window.entry(s2_chars[j]).or_insert(0) += 1;  // build window freq
+        }
+        if window == s1_count {   // same character frequencies?
+            return true;          // it's a permutation!
+        }
+    }
 
-const SW_Q5_OPT = `# Sliding Window: update frequency map incrementally
-def check_inclusion(s1, s2):
-    from collections import Counter
+    false
+    // Time:  O(n * m) — for each of n windows, counting takes O(m)
+    // Space: O(m)     — maps store at most m unique characters
+}`
 
-    if len(s1) > len(s2):
-        return False
+const SW_Q5_OPT = `// Sliding Window: update frequency map incrementally
+fn check_inclusion(s1: &str, s2: &str) -> bool {
+    use std::collections::HashMap;
 
-    s1_count = Counter(s1)           # target frequency map (fixed)
-    window = Counter(s2[:len(s1)])   # frequency map of first window
+    if s1.len() > s2.len() {
+        return false;
+    }
 
-    if window == s1_count:           # check the very first window
-        return True
+    let s1_chars: Vec<char> = s1.chars().collect();
+    let s2_chars: Vec<char> = s2.chars().collect();
+    let m = s1_chars.len();
 
-    # slide the window from position len(s1) to end of s2
-    for i in range(len(s1), len(s2)):
-        new_char = s2[i]               # character entering from right
-        window[new_char] += 1          # add it to frequency map
+    // build target frequency map (fixed)
+    let mut s1_count: HashMap<char, i32> = HashMap::new();
+    for &c in &s1_chars {
+        *s1_count.entry(c).or_insert(0) += 1;
+    }
 
-        old_char = s2[i - len(s1)]    # character leaving from left
-        window[old_char] -= 1          # remove it
-        if window[old_char] == 0:
-            del window[old_char]       # clean up zero counts
+    // build frequency map of first window in s2
+    let mut window: HashMap<char, i32> = HashMap::new();
+    for &c in &s2_chars[..m] {
+        *window.entry(c).or_insert(0) += 1;
+    }
 
-        if window == s1_count:         # does this window match s1?
-            return True
+    if window == s1_count {    // check the very first window
+        return true;
+    }
 
-    return False
-    # Key: instead of re-counting each window (O(m)), we update 2 chars.
-    # Time:  O(n) — n = len(s2), single pass
-    # Space: O(1) — at most 26 lowercase letters in either map`
+    // slide the window from position m to end of s2
+    for i in m..s2_chars.len() {
+        let new_char = s2_chars[i];           // character entering from right
+        *window.entry(new_char).or_insert(0) += 1;  // add it to frequency map
+
+        let old_char = s2_chars[i - m];       // character leaving from left
+        let count = window.entry(old_char).or_insert(0);
+        *count -= 1;
+        if *count == 0 {
+            window.remove(&old_char);         // clean up zero counts
+        }
+
+        if window == s1_count {               // does this window match s1?
+            return true;
+        }
+    }
+
+    false
+    // Key: instead of re-counting each window (O(m)), we update 2 chars.
+    // Time:  O(n) — n = s2.len(), single pass
+    // Space: O(1) — at most 26 lowercase letters in either map
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  PRACTICE Q1 — Maximum Average Subarray
 // ─────────────────────────────────────────────────────────────
 
-const SW_P1_CODE = `def find_max_average(nums, k):
-    # build the first window of k elements
-    window_sum = sum(nums[:k])  # sum of first k elements
-    max_sum = window_sum        # best sum seen so far
+const SW_P1_CODE = `fn find_max_average(nums: &[i32], k: usize) -> f64 {
+    // build the first window of k elements
+    let mut window_sum: i32 = nums[..k].iter().sum();  // sum of first k elements
+    let mut max_sum = window_sum;                       // best sum seen so far
 
-    # slide the window to the right, one step at a time
-    for i in range(k, len(nums)):
-        window_sum += nums[i]       # add element entering on right
-        window_sum -= nums[i - k]   # remove element leaving on left
-        max_sum = max(max_sum, window_sum)  # track best
+    // slide the window to the right, one step at a time
+    for i in k..nums.len() {
+        window_sum += nums[i];          // add element entering on right
+        window_sum -= nums[i - k];      // remove element leaving on left
+        max_sum = max_sum.max(window_sum);  // track best
+    }
 
-    return max_sum / k  # divide max sum by k to get average
-    # Time: O(n), Space: O(1)`
+    max_sum as f64 / k as f64  // divide max sum by k to get average
+    // Time: O(n), Space: O(1)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  PRACTICE Q2 — Longest Repeating Character Replacement
 // ─────────────────────────────────────────────────────────────
 
-const SW_P2_CODE = `def character_replacement(s, k):
-    freq = {}       # char → count in current window
-    left = 0        # left edge
-    max_freq = 0    # count of the most frequent char in window
-    max_len = 0     # answer: longest valid window
+const SW_P2_CODE = `fn character_replacement(s: &str, k: usize) -> usize {
+    use std::collections::HashMap;
+    let chars: Vec<char> = s.chars().collect();
+    let mut freq: HashMap<char, usize> = HashMap::new();  // char → count in current window
+    let mut left = 0usize;     // left edge
+    let mut max_freq = 0usize; // count of the most frequent char in window
+    let mut max_len = 0usize;  // answer: longest valid window
 
-    for right in range(len(s)):
-        char = s[right]
-        freq[char] = freq.get(char, 0) + 1
-        max_freq = max(max_freq, freq[char])   # track most frequent char count
+    for right in 0..chars.len() {
+        let c = chars[right];
+        *freq.entry(c).or_insert(0) += 1;
+        max_freq = max_freq.max(*freq.get(&c).unwrap());  // track most frequent char count
 
-        # replacements needed = window_size - max_freq
-        # if we need more replacements than k, shrink from left
-        while (right - left + 1) - max_freq > k:
-            freq[s[left]] -= 1   # remove leftmost char from freq map
-            left += 1            # shrink window
+        // replacements needed = window_size - max_freq
+        // if we need more replacements than k, shrink from left
+        while (right - left + 1) - max_freq > k {
+            let lc = chars[left];
+            *freq.entry(lc).or_insert(0) -= 1;  // remove leftmost char from freq map
+            left += 1;                           // shrink window
+        }
 
-        max_len = max(max_len, right - left + 1)  # valid window!
+        max_len = max_len.max(right - left + 1);  // valid window!
+    }
 
-    return max_len
-    # Time: O(n), Space: O(1) — at most 26 entries in freq`
+    max_len
+    // Time: O(n), Space: O(1) — at most 26 entries in freq
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  PRACTICE Q3 — Max Consecutive Ones III
 // ─────────────────────────────────────────────────────────────
 
-const SW_P3_CODE = `def longest_ones(nums, k):
-    left = 0      # left edge of window
-    zeros = 0     # zeros in window (each one = a "flip" used)
-    max_len = 0   # longest all-ones window we can form
+const SW_P3_CODE = `fn longest_ones(nums: &[i32], k: usize) -> usize {
+    let mut left = 0usize;   // left edge of window
+    let mut zeros = 0usize;  // zeros in window (each one = a "flip" used)
+    let mut max_len = 0usize; // longest all-ones window we can form
 
-    for right in range(len(nums)):
-        if nums[right] == 0:   # new element is a zero
-            zeros += 1         # we used one flip
+    for right in 0..nums.len() {
+        if nums[right] == 0 {   // new element is a zero
+            zeros += 1;         // we used one flip
+        }
 
-        # if we used more flips than allowed, shrink from left
-        while zeros > k:
-            if nums[left] == 0:   # removing a zero frees one flip
-                zeros -= 1
-            left += 1             # shrink window
+        // if we used more flips than allowed, shrink from left
+        while zeros > k {
+            if nums[left] == 0 {   // removing a zero frees one flip
+                zeros -= 1;
+            }
+            left += 1;             // shrink window
+        }
 
-        max_len = max(max_len, right - left + 1)  # valid window
+        max_len = max_len.max(right - left + 1);  // valid window
+    }
 
-    return max_len
-    # Time: O(n), Space: O(1)`
+    max_len
+    // Time: O(n), Space: O(1)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  PRACTICE Q4 — Minimum Window Substring
 // ─────────────────────────────────────────────────────────────
 
-const SW_P4_CODE = `def min_window(s, t):
-    from collections import Counter
+const SW_P4_CODE = `fn min_window(s: &str, t: &str) -> String {
+    use std::collections::HashMap;
 
-    if not t:
-        return ""
+    if t.is_empty() {
+        return String::new();
+    }
 
-    need = Counter(t)        # how many of each char we need
-    have = {}                # how many we currently have in window
-    formed = 0               # unique chars from t that are fully satisfied
-    required = len(need)     # total unique chars we need to satisfy
+    let s_chars: Vec<char> = s.chars().collect();
+    let mut need: HashMap<char, i32> = HashMap::new();
+    for c in t.chars() {
+        *need.entry(c).or_insert(0) += 1;  // how many of each char we need
+    }
 
-    left = 0
-    min_len = float('inf')
-    result = ""
+    let mut have: HashMap<char, i32> = HashMap::new();  // how many we currently have in window
+    let mut formed = 0i32;              // unique chars from t that are fully satisfied
+    let required = need.len() as i32;  // total unique chars we need to satisfy
 
-    for right in range(len(s)):
-        char = s[right]
-        have[char] = have.get(char, 0) + 1    # add char to window
+    let mut left = 0usize;
+    let mut min_len = usize::MAX;
+    let mut result = String::new();
 
-        # did this char just meet its requirement?
-        if char in need and have[char] == need[char]:
-            formed += 1   # one more requirement satisfied
+    for right in 0..s_chars.len() {
+        let c = s_chars[right];
+        *have.entry(c).or_insert(0) += 1;  // add char to window
 
-        # while window has all required chars, try to shrink it
-        while formed == required:
-            if right - left + 1 < min_len:    # new minimum found
-                min_len = right - left + 1
-                result = s[left : right + 1]  # save best window
+        // did this char just meet its requirement?
+        if let Some(&req) = need.get(&c) {
+            if *have.get(&c).unwrap() == req {
+                formed += 1;   // one more requirement satisfied
+            }
+        }
 
-            # shrink: remove leftmost char
-            remove = s[left]
-            have[remove] -= 1
-            if remove in need and have[remove] < need[remove]:
-                formed -= 1   # requirement no longer met
-            left += 1
+        // while window has all required chars, try to shrink it
+        while formed == required {
+            if right - left + 1 < min_len {    // new minimum found
+                min_len = right - left + 1;
+                result = s_chars[left..=right].iter().collect();  // save best window
+            }
 
-    return result
-    # Time: O(n + m), Space: O(n + m)`
+            // shrink: remove leftmost char
+            let remove = s_chars[left];
+            let cnt = have.entry(remove).or_insert(0);
+            *cnt -= 1;
+            if let Some(&req) = need.get(&remove) {
+                if *have.get(&remove).unwrap() < req {
+                    formed -= 1;   // requirement no longer met
+                }
+            }
+            left += 1;
+        }
+    }
+
+    result
+    // Time: O(n + m), Space: O(n + m)
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  PRACTICE Q5 — Sliding Window Maximum
 // ─────────────────────────────────────────────────────────────
 
-const SW_P5_CODE = `from collections import deque
+const SW_P5_CODE = `use std::collections::VecDeque;
 
-def max_sliding_window(nums, k):
-    result = []      # output: max of each window of size k
-    dq = deque()     # monotonic decreasing deque — stores INDICES
-    # invariant: dq[0] is always the index of the window's maximum
+fn max_sliding_window(nums: &[i32], k: usize) -> Vec<i32> {
+    let mut result: Vec<i32> = Vec::new();  // output: max of each window of size k
+    let mut dq: VecDeque<usize> = VecDeque::new();  // monotonic decreasing deque — stores INDICES
+    // invariant: dq[0] is always the index of the window's maximum
 
-    for i in range(len(nums)):
-        # remove indices that are outside the current window
-        while dq and dq[0] < i - k + 1:
-            dq.popleft()      # front index is out of window
+    for i in 0..nums.len() {
+        // remove indices that are outside the current window
+        while !dq.is_empty() && *dq.front().unwrap() + k <= i {
+            dq.pop_front();      // front index is out of window
+        }
 
-        # remove indices of elements smaller than nums[i]
-        # they can never be the max while nums[i] is in the window
-        while dq and nums[dq[-1]] < nums[i]:
-            dq.pop()          # useless: smaller and to the left of i
+        // remove indices of elements smaller than nums[i]
+        // they can never be the max while nums[i] is in the window
+        while !dq.is_empty() && nums[*dq.back().unwrap()] < nums[i] {
+            dq.pop_back();       // useless: smaller and to the left of i
+        }
 
-        dq.append(i)          # add current index to back of deque
+        dq.push_back(i);         // add current index to back of deque
 
-        # once the first full window is formed, record the max
-        if i >= k - 1:
-            result.append(nums[dq[0]])  # front = window maximum
+        // once the first full window is formed, record the max
+        if i >= k - 1 {
+            result.push(nums[*dq.front().unwrap()]);  // front = window maximum
+        }
+    }
 
-    return result
-    # Time:  O(n) — each element pushed and popped at most once
-    # Space: O(k) — deque holds at most k indices`
+    result
+    // Time:  O(n) — each element pushed and popped at most once
+    // Space: O(k) — deque holds at most k indices
+}`
 
 // ─────────────────────────────────────────────────────────────
 //  MAIN EXPORT
@@ -510,7 +617,7 @@ export default function SlidingWindowContent() {
           answer="The aha moment: you don't need to re-sum the window each time. Just add the element entering on the right and remove the element leaving on the left. One add + one subtract = O(1) per step, O(n) total."
           bruteCode={SW_Q1_BRUTE}
           optCode={SW_Q1_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -532,7 +639,7 @@ export default function SlidingWindowContent() {
           answer="The window is always valid (no repeats). When a duplicate enters from the right, we shrink from the left in O(1) using the last-seen map — no rescanning needed. Single pass, O(n) time."
           bruteCode={SW_Q2_BRUTE}
           optCode={SW_Q2_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -553,7 +660,7 @@ export default function SlidingWindowContent() {
           answer="Variable-size sliding window. Expand right greedily, then while valid (sum >= target) shrink left to minimize the window — recording length each time. O(n) because each element enters/leaves at most once."
           bruteCode={SW_Q3_BRUTE}
           optCode={SW_Q3_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -574,7 +681,7 @@ export default function SlidingWindowContent() {
           answer="A frequency map tracks what's in the window. Adding a new distinct char pushes us over k → slide left until a char's count hits zero and gets removed. Distinct count drops back to k. O(n) time, O(k) space."
           bruteCode={SW_Q4_BRUTE}
           optCode={SW_Q4_OPT}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -594,7 +701,7 @@ export default function SlidingWindowContent() {
           answer="Fixed window of size len(s1). Update frequency map in O(1) per slide (add one char, remove one char). Compare maps each step. Two maps equal → permutation found. O(n) time, O(1) space (26 letters max)."
           bruteCode={SW_Q5_BRUTE}
           optCode={SW_Q5_OPT}
-          lang="python"
+          lang="rust"
         />
 
       </Sub>
@@ -625,9 +732,9 @@ export default function SlidingWindowContent() {
           hint="Maximizing average = maximizing sum (same k for all windows). Find max sum of size k, then divide by k at the very end."
           answer="Same as Q1 — sliding window of fixed size k — but return max_sum / k instead of max_sum. O(n) time, O(1) space."
           answerCode={SW_P1_CODE}
-          bruteCode={`# O(n*k): sum each window from scratch\ndef brute(nums, k):\n    max_sum = 0\n    for i in range(len(nums) - k + 1):\n        window_sum = sum(nums[i : i + k])\n        max_sum = max(max_sum, window_sum)\n    return max_sum / k`}
+          bruteCode={`// O(n*k): sum each window from scratch\nfn brute(nums: &[i32], k: usize) -> f64 {\n    let mut max_sum = i32::MIN;\n    for i in 0..=(nums.len() - k) {\n        let window_sum: i32 = nums[i..i + k].iter().sum();\n        max_sum = max_sum.max(window_sum);\n    }\n    max_sum as f64 / k as f64\n}`}
           optCode={SW_P1_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -645,9 +752,9 @@ export default function SlidingWindowContent() {
           hint="A window is valid if (window_size - count_of_most_frequent_char) <= k. That expression = how many replacements you need. Track the max frequency char as you expand."
           answer="Greedy: window_size - max_freq = replacements needed. While > k, shrink left. We only need to track max_freq (not which char), because we're trying to maximize window size. O(n) time, O(1) space."
           answerCode={SW_P2_CODE}
-          bruteCode={`# O(n²): try all start positions\ndef brute(s, k):\n    max_len = 0\n    for i in range(len(s)):\n        freq = {}\n        for j in range(i, len(s)):\n            freq[s[j]] = freq.get(s[j],0)+1\n            if (j-i+1) - max(freq.values()) <= k:\n                max_len = max(max_len, j-i+1)\n        return max_len`}
+          bruteCode={`// O(n²): try all start positions\nfn brute(s: &str, k: usize) -> usize {\n    use std::collections::HashMap;\n    let chars: Vec<char> = s.chars().collect();\n    let mut max_len = 0usize;\n    for i in 0..chars.len() {\n        let mut freq: HashMap<char, usize> = HashMap::new();\n        for j in i..chars.len() {\n            *freq.entry(chars[j]).or_insert(0) += 1;\n            let max_f = *freq.values().max().unwrap();\n            if (j - i + 1) - max_f <= k {\n                max_len = max_len.max(j - i + 1);\n            }\n        }\n    }\n    max_len\n}`}
           optCode={SW_P2_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -665,9 +772,9 @@ export default function SlidingWindowContent() {
           hint="Think of k as your 'flip budget'. Track zeros in the window. If zeros > k, you overspent — shrink from left until you remove a zero to get back under budget."
           answer="Sliding window where the validity condition is: zeros in window <= k. Expand right freely, shrink left when zeros > k (removing a zero restores one flip). O(n) time, O(1) space."
           answerCode={SW_P3_CODE}
-          bruteCode={`# O(n²): try all start positions\ndef brute(nums, k):\n    max_len = 0\n    for i in range(len(nums)):\n        zeros = 0\n        for j in range(i, len(nums)):\n            if nums[j] == 0:\n                zeros += 1\n            if zeros <= k:\n                max_len = max(max_len, j-i+1)\n            else:\n                break\n    return max_len`}
+          bruteCode={`// O(n²): try all start positions\nfn brute(nums: &[i32], k: usize) -> usize {\n    let mut max_len = 0usize;\n    for i in 0..nums.len() {\n        let mut zeros = 0usize;\n        for j in i..nums.len() {\n            if nums[j] == 0 { zeros += 1; }\n            if zeros <= k {\n                max_len = max_len.max(j - i + 1);\n            } else {\n                break;\n            }\n        }\n    }\n    max_len\n}`}
           optCode={SW_P3_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -686,9 +793,9 @@ export default function SlidingWindowContent() {
           hint="Expand right until you have all chars from t (use a 'formed' counter: increments when a char's count hits its required amount). Once valid, shrink left to minimize."
           answer="Two-frequency-map approach. 'formed' tracks fully-satisfied requirements. Expand until formed == required, then shrink while still valid — saving the smallest window seen. Classic hard sliding window — worth studying carefully."
           answerCode={SW_P4_CODE}
-          bruteCode={`# O(n²): check every substring\nfrom collections import Counter\ndef brute(s, t):\n    tc = Counter(t)\n    best = ""\n    for i in range(len(s)):\n        wc = {}\n        for j in range(i, len(s)):\n            wc[s[j]] = wc.get(s[j],0)+1\n            if all(wc.get(c,0)>=tc[c] for c in tc):\n                if not best or j-i+1 < len(best):\n                    best = s[i:j+1]\n                break\n    return best`}
+          bruteCode={`// O(n²): check every substring\nfn brute(s: &str, t: &str) -> String {\n    use std::collections::HashMap;\n    let s_chars: Vec<char> = s.chars().collect();\n    let mut need: HashMap<char, i32> = HashMap::new();\n    for c in t.chars() { *need.entry(c).or_insert(0) += 1; }\n    let mut best = String::new();\n    for i in 0..s_chars.len() {\n        let mut wc: HashMap<char, i32> = HashMap::new();\n        for j in i..s_chars.len() {\n            *wc.entry(s_chars[j]).or_insert(0) += 1;\n            if need.iter().all(|(c, &r)| *wc.get(c).unwrap_or(&0) >= r) {\n                let window: String = s_chars[i..=j].iter().collect();\n                if best.is_empty() || window.len() < best.len() {\n                    best = window;\n                }\n                break;\n            }\n        }\n    }\n    best\n}`}
           optCode={SW_P4_CODE}
-          lang="python"
+          lang="rust"
         />
 
         <QuestionCard
@@ -706,9 +813,9 @@ export default function SlidingWindowContent() {
           hint="You need O(1) max per window. Use a monotonic decreasing deque of indices. Key insight: if a new element is larger than anything in the deque, those smaller elements can never be the max — discard them."
           answer="Monotonic decreasing deque. Front = current window's max. Remove front when out-of-window. Remove back when back's value < new element (it's now permanently useless). Each element pushed/popped once → O(n) total."
           answerCode={SW_P5_CODE}
-          bruteCode={`# O(n*k): max of every window directly\ndef brute(nums, k):\n    return [max(nums[i:i+k])\n            for i in range(len(nums) - k + 1)]`}
+          bruteCode={`// O(n*k): max of every window directly\nfn brute(nums: &[i32], k: usize) -> Vec<i32> {\n    (0..=(nums.len() - k))\n        .map(|i| *nums[i..i + k].iter().max().unwrap())\n        .collect()\n}`}
           optCode={SW_P5_CODE}
-          lang="python"
+          lang="rust"
         />
 
       </Sub>

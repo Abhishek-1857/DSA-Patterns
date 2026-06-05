@@ -57,19 +57,21 @@ KEY: each step eliminates HALF the remaining elements
 const BS_TEMPLATE = `
 THE BINARY SEARCH TEMPLATE:
 
-lo, hi = 0, len(arr) - 1
+let mut left = 0i32;
+let mut right = arr.len() as i32 - 1;
 
-while lo <= hi:
-    mid = lo + (hi - lo) // 2   ← avoids integer overflow (good habit)
+while left <= right {
+    let mid = left + (right - left) / 2;  // avoids integer overflow (good habit)
 
-    if arr[mid] == target:
-        return mid               ← exact match
-    elif arr[mid] < target:
-        lo = mid + 1             ← target is in RIGHT half
-    else:
-        hi = mid - 1             ← target is in LEFT half
-
-return -1   ← not found
+    if arr[mid as usize] == target {
+        return mid;                        // exact match
+    } else if arr[mid as usize] < target {
+        left = mid + 1;                    // target is in RIGHT half
+    } else {
+        right = mid - 1;                   // target is in LEFT half
+    }
+}
+return -1;   // not found
 
 ROTATED ARRAY VARIANT — two sorted halves:
 
@@ -83,245 +85,305 @@ Figure out which side is sorted, check if target is in it, go there.
 `
 
 // ── Q1: Classic Binary Search ──────────────────────────────────────────────
-const q1Brute = `# Brute: linear scan — O(n)
-def search_brute(nums, target):
-    for i, n in enumerate(nums):
-        if n == target:
-            return i
-    return -1`
+const q1Brute = `// Brute: linear scan — O(n)
+fn search_brute(nums: &[i32], target: i32) -> i32 {
+    for (i, &n) in nums.iter().enumerate() {
+        if n == target {
+            return i as i32;
+        }
+    }
+    -1
+}`
 
-const q1Opt = `def search(nums, target):
-    lo, hi = 0, len(nums) - 1       # search window: [lo, hi] inclusive
+const q1Opt = `fn search(nums: &[i32], target: i32) -> i32 {
+    let mut lo = 0i32;
+    let mut hi = nums.len() as i32 - 1;  // search window: [lo, hi] inclusive
 
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2   # midpoint (avoid overflow with this form)
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;    // midpoint (avoid overflow with this form)
 
-        if nums[mid] == target:
-            return mid               # found it!
-        elif nums[mid] < target:
-            lo = mid + 1             # target is to the RIGHT of mid
-        else:
-            hi = mid - 1             # target is to the LEFT of mid
-
-    return -1                        # target not in array`
+        if nums[mid as usize] == target {
+            return mid;                   // found it!
+        } else if nums[mid as usize] < target {
+            lo = mid + 1;                 // target is to the RIGHT of mid
+        } else {
+            hi = mid - 1;                 // target is to the LEFT of mid
+        }
+    }
+    -1                                    // target not in array
+}`
 
 // ── Q2: Smallest Letter Greater Than Target ────────────────────────────────
-const q2Brute = `# Brute: linear scan for the first letter > target
-def next_greatest_letter_brute(letters, target):
-    for ch in letters:               # letters is sorted
-        if ch > target:
-            return ch
-    return letters[0]                # wrap around: all letters <= target`
+const q2Brute = `// Brute: linear scan for the first letter > target
+fn next_greatest_letter_brute(letters: &[char], target: char) -> char {
+    for &ch in letters {               // letters is sorted
+        if ch > target {
+            return ch;
+        }
+    }
+    letters[0]                         // wrap around: all letters <= target
+}`
 
-const q2Opt = `def next_greatest_letter(letters, target):
-    lo, hi = 0, len(letters) - 1
+const q2Opt = `fn next_greatest_letter(letters: &[char], target: char) -> char {
+    let mut lo = 0i32;
+    let mut hi = letters.len() as i32 - 1;
 
-    # We want the LEFTMOST letter that is strictly > target
-    result = letters[0]              # default: wrap around to first letter
+    // We want the LEFTMOST letter that is strictly > target
+    let mut result = letters[0];       // default: wrap around to first letter
 
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        if letters[mid] > target:
-            result = letters[mid]    # this is a candidate, but maybe we can find smaller
-            hi = mid - 1             # look left for an even smaller candidate
-        else:
-            lo = mid + 1             # letters[mid] <= target, go right
-
-    return result`
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        if letters[mid as usize] > target {
+            result = letters[mid as usize]; // this is a candidate, but maybe we can find smaller
+            hi = mid - 1;                   // look left for an even smaller candidate
+        } else {
+            lo = mid + 1;                   // letters[mid] <= target, go right
+        }
+    }
+    result
+}`
 
 // ── Q3: First and Last Position ────────────────────────────────────────────
-const q3Brute = `# Brute: scan left for first occurrence, scan right for last — O(n)
-def search_range_brute(nums, target):
-    first, last = -1, -1
-    for i, n in enumerate(nums):
-        if n == target:
-            if first == -1:
-                first = i
-            last = i
-    return [first, last]`
+const q3Brute = `// Brute: scan left for first occurrence, scan right for last — O(n)
+fn search_range_brute(nums: &[i32], target: i32) -> [i32; 2] {
+    let (mut first, mut last) = (-1i32, -1i32);
+    for (i, &n) in nums.iter().enumerate() {
+        if n == target {
+            if first == -1 {
+                first = i as i32;
+            }
+            last = i as i32;
+        }
+    }
+    [first, last]
+}`
 
-const q3Opt = `def search_range(nums, target):
-    def find_first(target):
-        lo, hi = 0, len(nums) - 1
-        result = -1
-        while lo <= hi:
-            mid = lo + (hi - lo) // 2
-            if nums[mid] == target:
-                result = mid         # record this, but keep searching LEFT
-                hi = mid - 1        # ← push hi left to find earlier occurrence
-            elif nums[mid] < target:
-                lo = mid + 1
-            else:
-                hi = mid - 1
-        return result
+const q3Opt = `fn search_range(nums: &[i32], target: i32) -> [i32; 2] {
+    fn find_first(nums: &[i32], target: i32) -> i32 {
+        let mut lo = 0i32;
+        let mut hi = nums.len() as i32 - 1;
+        let mut result = -1i32;
+        while lo <= hi {
+            let mid = lo + (hi - lo) / 2;
+            if nums[mid as usize] == target {
+                result = mid;            // record this, but keep searching LEFT
+                hi = mid - 1;           // ← push hi left to find earlier occurrence
+            } else if nums[mid as usize] < target {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        result
+    }
 
-    def find_last(target):
-        lo, hi = 0, len(nums) - 1
-        result = -1
-        while lo <= hi:
-            mid = lo + (hi - lo) // 2
-            if nums[mid] == target:
-                result = mid         # record this, but keep searching RIGHT
-                lo = mid + 1        # ← push lo right to find later occurrence
-            elif nums[mid] < target:
-                lo = mid + 1
-            else:
-                hi = mid - 1
-        return result
+    fn find_last(nums: &[i32], target: i32) -> i32 {
+        let mut lo = 0i32;
+        let mut hi = nums.len() as i32 - 1;
+        let mut result = -1i32;
+        while lo <= hi {
+            let mid = lo + (hi - lo) / 2;
+            if nums[mid as usize] == target {
+                result = mid;            // record this, but keep searching RIGHT
+                lo = mid + 1;           // ← push lo right to find later occurrence
+            } else if nums[mid as usize] < target {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        result
+    }
 
-    return [find_first(target), find_last(target)]`
+    [find_first(nums, target), find_last(nums, target)]
+}`
 
 // ── Q4: Search in Rotated Sorted Array ────────────────────────────────────
-const q4Brute = `# Brute: linear scan ignores the sorted structure — O(n)
-def search_rotated_brute(nums, target):
-    for i, n in enumerate(nums):
-        if n == target:
-            return i
-    return -1`
+const q4Brute = `// Brute: linear scan ignores the sorted structure — O(n)
+fn search_rotated_brute(nums: &[i32], target: i32) -> i32 {
+    for (i, &n) in nums.iter().enumerate() {
+        if n == target {
+            return i as i32;
+        }
+    }
+    -1
+}`
 
-const q4Opt = `def search_rotated(nums, target):
-    lo, hi = 0, len(nums) - 1
+const q4Opt = `fn search_rotated(nums: &[i32], target: i32) -> i32 {
+    let mut lo = 0i32;
+    let mut hi = nums.len() as i32 - 1;
 
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        if nums[mid] == target:
-            return mid
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        if nums[mid as usize] == target {
+            return mid;
+        }
 
-        # key insight: one half MUST be cleanly sorted — figure out which one
-        if nums[lo] <= nums[mid]:
-            # LEFT half [lo..mid] is sorted
-            if nums[lo] <= target < nums[mid]:
-                hi = mid - 1        # target is inside the sorted left half
-            else:
-                lo = mid + 1        # target must be in the right half
-        else:
-            # RIGHT half [mid..hi] is sorted
-            if nums[mid] < target <= nums[hi]:
-                lo = mid + 1        # target is inside the sorted right half
-            else:
-                hi = mid - 1        # target must be in the left half
-
-    return -1`
+        // key insight: one half MUST be cleanly sorted — figure out which one
+        if nums[lo as usize] <= nums[mid as usize] {
+            // LEFT half [lo..mid] is sorted
+            if target >= nums[lo as usize] && target < nums[mid as usize] {
+                hi = mid - 1;           // target is inside the sorted left half
+            } else {
+                lo = mid + 1;           // target must be in the right half
+            }
+        } else {
+            // RIGHT half [mid..hi] is sorted
+            if target > nums[mid as usize] && target <= nums[hi as usize] {
+                lo = mid + 1;           // target is inside the sorted right half
+            } else {
+                hi = mid - 1;           // target must be in the left half
+            }
+        }
+    }
+    -1
+}`
 
 // ── Q5: Find Minimum in Rotated Sorted Array ───────────────────────────────
-const q5Brute = `# Brute: linear scan for the minimum — O(n)
-def find_min_brute(nums):
-    return min(nums)`
+const q5Brute = `// Brute: linear scan for the minimum — O(n)
+fn find_min_brute(nums: &[i32]) -> i32 {
+    *nums.iter().min().unwrap()
+}`
 
-const q5Opt = `def find_min(nums):
-    lo, hi = 0, len(nums) - 1
+const q5Opt = `fn find_min(nums: &[i32]) -> i32 {
+    let mut lo = 0i32;
+    let mut hi = nums.len() as i32 - 1;
 
-    while lo < hi:               # stop when window has 1 element
-        mid = lo + (hi - lo) // 2
+    while lo < hi {                    // stop when window has 1 element
+        let mid = lo + (hi - lo) / 2;
 
-        if nums[mid] > nums[hi]:
-            # mid is in the LEFT (larger) part of the rotation
-            # minimum is somewhere to the RIGHT of mid
-            lo = mid + 1
-        else:
-            # mid is in the RIGHT (smaller) part, or array isn't rotated here
-            # minimum is at mid or to its LEFT (don't discard mid!)
-            hi = mid             # ← note: hi = mid, not mid-1
-
-    return nums[lo]              # lo == hi, both pointing at the minimum`
+        if nums[mid as usize] > nums[hi as usize] {
+            // mid is in the LEFT (larger) part of the rotation
+            // minimum is somewhere to the RIGHT of mid
+            lo = mid + 1;
+        } else {
+            // mid is in the RIGHT (smaller) part, or array isn't rotated here
+            // minimum is at mid or to its LEFT (don't discard mid!)
+            hi = mid;                  // ← note: hi = mid, not mid-1
+        }
+    }
+    nums[lo as usize]                  // lo == hi, both pointing at the minimum
+}`
 
 // ── PRACTICE answers ───────────────────────────────────────────────────────
-const pq1Code = `# Guess Number Higher or Lower — binary search on 1..n
-def guessNumber(n):
-    lo, hi = 1, n
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        result = guess(mid)       # API: -1 = too high, 1 = too low, 0 = correct
-        if result == 0:
-            return mid
-        elif result == 1:
-            lo = mid + 1          # guess was too low, go right
-        else:
-            hi = mid - 1          # guess was too high, go left
-    return -1`
+const pq1Code = `// Guess Number Higher or Lower — binary search on 1..=n
+// guess(num) API: -1 = too high, 1 = too low, 0 = correct
+fn guess_number(n: i32) -> i32 {
+    let mut lo = 1i32;
+    let mut hi = n;
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        match guess(mid) {
+            0 => return mid,
+            1 => lo = mid + 1,         // guess was too low, go right
+            _ => hi = mid - 1,         // guess was too high, go left
+        }
+    }
+    -1
+}`
 
-const pq2Code = `# Sqrt(x) — binary search for largest k where k*k <= x
-def mySqrt(x):
-    if x < 2:
-        return x
-    lo, hi = 1, x // 2           # sqrt(x) is always <= x//2 for x >= 4
-    result = 1
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        if mid * mid == x:
-            return mid            # perfect square
-        elif mid * mid < x:
-            result = mid          # this works, but maybe a larger one does too
-            lo = mid + 1
-        else:
-            hi = mid - 1
-    return result                 # largest mid where mid*mid <= x`
+const pq2Code = `// Sqrt(x) — binary search for largest k where k*k <= x
+fn my_sqrt(x: i32) -> i32 {
+    if x < 2 {
+        return x;
+    }
+    let mut lo = 1i64;
+    let mut hi = (x as i64) / 2;      // sqrt(x) is always <= x//2 for x >= 4
+    let mut result = 1i64;
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        if mid * mid == x as i64 {
+            return mid as i32;         // perfect square
+        } else if mid * mid < x as i64 {
+            result = mid;              // this works, but maybe a larger one does too
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    result as i32                      // largest mid where mid*mid <= x
+}`
 
-const pq3Code = `# Find Peak Element — peak is any element > both neighbors
-def findPeakElement(nums):
-    lo, hi = 0, len(nums) - 1
-    while lo < hi:
-        mid = lo + (hi - lo) // 2
-        if nums[mid] > nums[mid + 1]:
-            # slope is going down → peak is at mid or to its LEFT
-            hi = mid
-        else:
-            # slope is going up → peak is to the RIGHT of mid
-            lo = mid + 1
-    return lo                     # lo == hi, pointing at a peak`
+const pq3Code = `// Find Peak Element — peak is any element > both neighbors
+fn find_peak_element(nums: &[i32]) -> i32 {
+    let mut lo = 0i32;
+    let mut hi = nums.len() as i32 - 1;
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if nums[mid as usize] > nums[(mid + 1) as usize] {
+            // slope is going down → peak is at mid or to its LEFT
+            hi = mid;
+        } else {
+            // slope is going up → peak is to the RIGHT of mid
+            lo = mid + 1;
+        }
+    }
+    lo                                 // lo == hi, pointing at a peak
+}`
 
-const pq4Code = `# Koko Eating Bananas — binary search on eating speed
-import math
+const pq4Code = `// Koko Eating Bananas — binary search on eating speed
+fn min_eating_speed(piles: &[i32], h: i32) -> i32 {
+    let can_finish = |speed: i32| -> bool {
+        // how many hours to eat all piles at this speed?
+        piles.iter().map(|&p| (p + speed - 1) / speed).sum::<i32>() <= h
+    };
 
-def minEatingSpeed(piles, h):
-    def can_finish(speed):
-        # how many hours to eat all piles at this speed?
-        return sum(math.ceil(p / speed) for p in piles) <= h
+    let mut lo = 1i32;
+    let mut hi = *piles.iter().max().unwrap(); // speed 1 = slowest, max(piles) = fastest (1 pile/hr)
+    let mut result = hi;
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        if can_finish(mid) {
+            result = mid;              // this speed works, try slower
+            hi = mid - 1;
+        } else {
+            lo = mid + 1;              // too slow, try faster
+        }
+    }
+    result
+}`
 
-    lo, hi = 1, max(piles)        # speed 1 = slowest, max(piles) = fastest (1 pile/hr)
-    result = hi
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        if can_finish(mid):
-            result = mid          # this speed works, try slower
-            hi = mid - 1
-        else:
-            lo = mid + 1          # too slow, try faster
-    return result`
+const pq5Code = `// Find in Mountain Array — peak split + binary search each half
+fn find_in_mountain_array(target: i32, mountain_arr: &MountainArray) -> i32 {
+    let n = mountain_arr.length();
 
-const pq5Code = `# Find in Mountain Array — peak split + binary search each half
-def findInMountainArray(target, mountain_arr):
-    n = mountain_arr.length()
+    // step 1: find the peak index
+    let mut lo = 0i32;
+    let mut hi = n as i32 - 1;
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if mountain_arr.get(mid) < mountain_arr.get(mid + 1) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    let peak = lo;
 
-    # step 1: find the peak index
-    lo, hi = 0, n - 1
-    while lo < hi:
-        mid = lo + (hi - lo) // 2
-        if mountain_arr.get(mid) < mountain_arr.get(mid + 1):
-            lo = mid + 1
-        else:
-            hi = mid
-    peak = lo
+    // step 2: search ascending left side [0..peak]
+    let mut lo = 0i32;
+    let mut hi = peak;
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        let val = mountain_arr.get(mid);
+        if val == target      { return mid; }
+        else if val < target  { lo = mid + 1; }
+        else                  { hi = mid - 1; }
+    }
 
-    # step 2: search ascending left side [0..peak]
-    lo, hi = 0, peak
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        val = mountain_arr.get(mid)
-        if val == target:   return mid
-        elif val < target:  lo = mid + 1
-        else:               hi = mid - 1
+    // step 3: search descending right side [peak..n-1]
+    let mut lo = peak;
+    let mut hi = n as i32 - 1;
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2;
+        let val = mountain_arr.get(mid);
+        if val == target      { return mid; }
+        else if val > target  { lo = mid + 1; }  // descending: bigger is to the LEFT
+        else                  { hi = mid - 1; }
+    }
 
-    # step 3: search descending right side [peak..n-1]
-    lo, hi = peak, n - 1
-    while lo <= hi:
-        mid = lo + (hi - lo) // 2
-        val = mountain_arr.get(mid)
-        if val == target:   return mid
-        elif val > target:  lo = mid + 1   # descending: bigger is to the LEFT
-        else:               hi = mid - 1
-
-    return -1`
+    -1
+}`
 
 export default function BinarySearchContent() {
   return (
@@ -351,7 +413,7 @@ export default function BinarySearchContent() {
         <CodeBlock code={BS_TEMPLATE} lang="text" />
         <Callout type="info">
           Two common variants: (1) find <em>exact match</em> — return mid when
-          <code>arr[mid] == target</code>. (2) find <em>leftmost/rightmost</em>
+          <code>arr[mid as usize] == target</code>. (2) find <em>leftmost/rightmost</em>
           occurrence — record mid and keep searching in the appropriate direction.
           Learn both; most problems are one of these two.
         </Callout>
@@ -368,17 +430,17 @@ export default function BinarySearchContent() {
 Example: nums=[-1,0,3,5,9,12], target=9 → 4`}
           brute={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={q1Brute} lang="python" />
+            <CodeBlock code={q1Brute} lang="rust" />
             <Callout type="warn">Linear scan works but throws away the sorted structure. We can do O(log n).</Callout>
           </>}
           optimized={<>
             <BigOBadge time="O(log n)" space="O(1)" />
-            <CodeBlock code={q1Opt} lang="python" />
+            <CodeBlock code={q1Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Write <code>mid = lo + (hi - lo) // 2</code>
-              instead of <code>(lo + hi) // 2</code>. Both give the same answer, but the first
-              form never overflows (important in languages with fixed integer sizes — good habit
-              in Python too).
+              <strong>Aha moment:</strong> Write <code>mid = lo + (hi - lo) / 2</code>
+              instead of <code>(lo + hi) / 2</code>. Both give the same answer, but the first
+              form never overflows (important in languages with fixed integer sizes — Rust uses
+              i32 here so this matters).
             </Callout>
             <Callout type="danger">
               <strong>Common mistake:</strong> Using <code>lo &lt; hi</code> instead of
@@ -386,7 +448,7 @@ Example: nums=[-1,0,3,5,9,12], target=9 → 4`}
               check. Miss it and you'll return -1 when the target is right there.
             </Callout>
           </>}
-          answer="lo=0, hi=len-1. While lo<=hi: mid=lo+(hi-lo)//2. If match return mid. If arr[mid]<target: lo=mid+1. Else: hi=mid-1. Return -1."
+          answer="lo=0, hi=len-1 (as i32). While lo<=hi: mid=lo+(hi-lo)/2. If match return mid. If arr[mid]<target: lo=mid+1. Else: hi=mid-1. Return -1."
         />
 
         <QuestionCard
@@ -399,14 +461,14 @@ Example: letters=['c','f','j'], target='c' → 'f'
 Example: letters=['c','f','j'], target='j' → 'c'  (wrap around)`}
           brute={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={q2Brute} lang="python" />
+            <CodeBlock code={q2Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(log n)" space="O(1)" />
-            <CodeBlock code={q2Opt} lang="python" />
+            <CodeBlock code={q2Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> This is "find the leftmost element strictly greater
-              than target". When you find a candidate (<code>letters[mid] &gt; target</code>),
+              than target". When you find a candidate (<code>letters[mid as usize] &gt; target</code>),
               record it but keep searching left — there might be a smaller valid answer.
               Default to <code>letters[0]</code> for the wrap-around case.
             </Callout>
@@ -427,11 +489,11 @@ Example: letters=['c','f','j'], target='j' → 'c'  (wrap around)`}
 Example: nums=[5,7,7,8,8,10], target=8 → [3,4]`}
           brute={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={q3Brute} lang="python" />
+            <CodeBlock code={q3Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(log n)" space="O(1)" />
-            <CodeBlock code={q3Opt} lang="python" />
+            <CodeBlock code={q3Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Run binary search twice — once biased left
               (when you find a match, record it and push <code>hi = mid - 1</code> to
@@ -457,15 +519,15 @@ Example: nums=[4,5,6,7,0,1,2], target=0 → 4
 Example: nums=[4,5,6,7,0,1,2], target=3 → -1`}
           brute={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={q4Brute} lang="python" />
+            <CodeBlock code={q4Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(log n)" space="O(1)" />
-            <CodeBlock code={q4Opt} lang="python" />
+            <CodeBlock code={q4Opt} lang="rust" />
             <Callout type="tip">
               <strong>Aha moment:</strong> Even in a rotated array, one of the two halves
-              around any midpoint is always perfectly sorted. Compare <code>nums[lo]</code>
-              with <code>nums[mid]</code> to determine which half is clean, then check if
+              around any midpoint is always perfectly sorted. Compare <code>nums[lo as usize]</code>
+              with <code>nums[mid as usize]</code> to determine which half is clean, then check if
               the target falls inside that clean half. If yes, search there. Otherwise search
               the other half.
             </Callout>
@@ -488,14 +550,14 @@ Example: [3,4,5,1,2] → 1
 Example: [4,5,6,7,0,1,2] → 0`}
           brute={<>
             <BigOBadge time="O(n)" space="O(1)" />
-            <CodeBlock code={q5Brute} lang="python" />
+            <CodeBlock code={q5Brute} lang="rust" />
           </>}
           optimized={<>
             <BigOBadge time="O(log n)" space="O(1)" />
-            <CodeBlock code={q5Opt} lang="python" />
+            <CodeBlock code={q5Opt} lang="rust" />
             <Callout type="tip">
-              <strong>Aha moment:</strong> Compare <code>nums[mid]</code> with
-              <code>nums[hi]</code>. If <code>nums[mid] &gt; nums[hi]</code>, the big-value
+              <strong>Aha moment:</strong> Compare <code>nums[mid as usize]</code> with
+              <code>nums[hi as usize]</code>. If <code>nums[mid] &gt; nums[hi]</code>, the big-value
               "hump" is on the left side — the minimum must be to the right, so
               <code>lo = mid + 1</code>. Otherwise the minimum is at mid or left, so
               <code>hi = mid</code> (not mid-1, since mid itself might be the minimum).
@@ -539,11 +601,11 @@ Example: [4,5,6,7,0,1,2] → 0`}
 
 Example: x=8 → 2 (sqrt(8)=2.82..., floor=2)`}
           hints={[
-            "Binary search on the answer space [1, x//2].",
+            "Binary search on the answer space [1, x/2].",
             "You're looking for the largest k where k*k <= x.",
             "When mid*mid <= x: record mid (it's a valid candidate) and search right. When mid*mid > x: search left.",
           ]}
-          answer="Binary search [1, x//2]. Track the largest mid where mid*mid <= x. Return that."
+          answer="Binary search [1, x/2]. Track the largest mid where mid*mid <= x. Return that."
           answerCode={pq2Code}
         />
 
@@ -577,7 +639,7 @@ Example: piles=[3,6,7,11], h=8 → 4`}
             "For a given speed k, she takes ceil(pile/k) hours per pile. If total hours <= h, speed k works.",
             "Find the MINIMUM speed that works: when can_finish(mid), record mid and try slower (hi=mid-1). Else try faster (lo=mid+1).",
           ]}
-          answer="Binary search [1, max(piles)]. can_finish(speed): sum(ceil(p/speed)) <= h. Find minimum speed where can_finish is True."
+          answer="Binary search [1, max(piles)]. can_finish(speed): sum(ceil(p/speed)) <= h. Find minimum speed where can_finish is true."
           answerCode={pq4Code}
         />
 
