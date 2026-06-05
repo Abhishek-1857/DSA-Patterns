@@ -39,7 +39,7 @@ function DSCard({ icon, name, what, analogy, code }) {
       <div className="ds-card-name">{icon} {name}</div>
       <div className="ds-card-what">{what}</div>
       <div className="ds-card-analo">📦 {analogy}</div>
-      <CodeBlock code={code} lang="javascript" />
+      <CodeBlock code={code} lang="rust" />
     </div>
   )
 }
@@ -48,88 +48,87 @@ function DSCard({ icon, name, what, analogy, code }) {
 //  CODE STRINGS
 // ─────────────────────────────────────────────────────────────
 
-const ARRAY_CODE = `// An array stores items in a fixed order, side by side in memory
-const fruits = ["apple", "banana", "mango", "grape"];
-//               idx 0     idx 1     idx 2    idx 3
+const ARRAY_CODE = `// A Vec stores items in a fixed order, contiguous in memory
+let mut fruits = vec!["apple", "banana", "mango", "grape"];
+//                     idx 0     idx 1     idx 2    idx 3
 //   ↑ indexes start at 0, not 1 — easy to forget!
 
-console.log(fruits[0]);      // → "apple"  (instant: go straight to slot 0)
-console.log(fruits[2]);      // → "mango"  (instant: go straight to slot 2)
-console.log(fruits.length);  // → 4        (how many items are in here)
+println!("{}", fruits[0]);      // → "apple"  (instant: go straight to slot 0)
+println!("{}", fruits[2]);      // → "mango"  (instant: go straight to slot 2)
+println!("{}", fruits.len());   // → 4        (how many items are in here)
 
-fruits.push("peach");        // add to the end   → [..., "peach"]
-fruits.pop();                // remove last item  → removes "peach"`
+fruits.push("peach");           // add to the end   → [..., "peach"]
+fruits.pop();                   // remove last → Some("peach")`
 
-const LINKED_LIST_CODE = `// Each "node" holds a value + a pointer to the next node
-class Node {
-  constructor(value) {
-    this.value = value;  // the actual data stored here
-    this.next  = null;   // arrow pointing to next node (null = end of list)
-  }
+const LINKED_LIST_CODE = `// Each node holds a value + an optional pointer to the next node
+struct Node {
+    value: i32,
+    next: Option<Box<Node>>,  // Box = heap alloc, Option = may be None
 }
 
-// Build: 10 → 20 → 30 → null
-const a = new Node(10);   // first node
-const b = new Node(20);   // second node
-const c = new Node(30);   // third node
-
-a.next = b;               // 10 → 20
-b.next = c;               // 20 → 30
-// c.next stays null      → end of the list
+// Build: 10 → 20 → 30 → None
+let c = Node { value: 30, next: None };
+let b = Node { value: 20, next: Some(Box::new(c)) };  // 20 → 30
+let a = Node { value: 10, next: Some(Box::new(b)) };  // 10 → 20 → 30
 
 // To reach the value 30, you must walk from the beginning:
-console.log(a.next.next.value);  // → 30  (hop, hop, arrive)`
+let val = a.next.as_ref().unwrap()   // hop to 20
+           .next.as_ref().unwrap()   // hop to 30
+           .value;                   // arrive
+println!("{val}");  // → 30  (hop, hop, arrive)`
 
 const STACK_CODE = `// Stack = a pile of plates. Last one placed = first one removed.
-// Rule: you can ONLY add or remove from the TOP.
-const stack = [];
+// Rule: you can ONLY add or remove from the TOP (end of Vec).
+let mut stack: Vec<&str> = Vec::new();
 
 stack.push("homework 1");  // add to top → ["homework 1"]
 stack.push("homework 2");  // add to top → ["homework 1", "homework 2"]
 stack.push("homework 3");  // add to top → ["...", "...", "homework 3"]
 
-console.log(stack.pop()); // → "homework 3"  (last in, first out)
-console.log(stack.pop()); // → "homework 2"
-console.log(stack.length);// → 1  (only "homework 1" left)
+println!("{:?}", stack.pop()); // → Some("homework 3")  (last in, first out)
+println!("{:?}", stack.pop()); // → Some("homework 2")
+println!("{}", stack.len());   // → 1  (only "homework 1" left)
 
 // Real use: Ctrl+Z (undo), browser back button, call stack`
 
-const QUEUE_CODE = `// Queue = a line at lunch. First person in = first person served.
-// Rule: add to the BACK, remove from the FRONT.
-const queue = [];
+const QUEUE_CODE = `use std::collections::VecDeque;
 
-queue.push("Aryan");    // joins back → ["Aryan"]
-queue.push("Priya");    // joins back → ["Aryan", "Priya"]
-queue.push("Dev");      // joins back → ["Aryan", "Priya", "Dev"]
+// Queue = a line at lunch. First person in = first person served.
+// Rule: push to BACK, pop from FRONT.
+let mut queue: VecDeque<&str> = VecDeque::new();
 
-console.log(queue.shift()); // → "Aryan"  (first in, first out)
-console.log(queue.shift()); // → "Priya"
+queue.push_back("Aryan");    // joins back
+queue.push_back("Priya");    // joins back
+queue.push_back("Dev");      // joins back
+
+println!("{:?}", queue.pop_front()); // → Some("Aryan")  (first in, first out)
+println!("{:?}", queue.pop_front()); // → Some("Priya")
 // Dev is still waiting: ["Dev"]
 
 // Real use: task schedulers, print queues, BFS graph traversal`
 
-const HASHMAP_CODE = `// HashMap = a dictionary. Look up values instantly by name (key).
-const scores = new Map();   // start with an empty map
+const HASHMAP_CODE = `use std::collections::HashMap;
 
-scores.set("Alice",   95);  // key: "Alice",   value: 95
-scores.set("Bob",     87);  // key: "Bob",     value: 87
-scores.set("Charlie", 92);  // key: "Charlie", value: 92
+// HashMap = a dictionary. Look up values instantly by name (key).
+let mut scores: HashMap<&str, i32> = HashMap::new();
+
+scores.insert("Alice",   95);  // key: "Alice",   value: 95
+scores.insert("Bob",     87);  // key: "Bob",     value: 87
+scores.insert("Charlie", 92);  // key: "Charlie", value: 92
 
 // Find Alice's score — no looping, just instant lookup:
-console.log(scores.get("Alice"));  // → 95
-console.log(scores.has("Dave"));   // → false  (Dave not in here)
-console.log(scores.size);          // → 3
+println!("{:?}", scores.get("Alice"));        // → Some(95)
+println!("{}", scores.contains_key("Dave"));  // → false  (Dave not in here)
+println!("{}", scores.len());                 // → 3
 
 // This is O(1) — same speed whether 3 entries or 3 million entries`
 
 const TREE_CODE = `// Tree = a family tree. One root at top, branches going down.
 // Each node can have child nodes. No going back (no cycles).
-class TreeNode {
-  constructor(val) {
-    this.val   = val;   // this node's value
-    this.left  = null;  // left child (or null if leaf)
-    this.right = null;  // right child (or null if leaf)
-  }
+struct TreeNode {
+    val:   i32,
+    left:  Option<Box<TreeNode>>,  // left child (or None if leaf)
+    right: Option<Box<TreeNode>>,  // right child (or None if leaf)
 }
 
 //  Build:        10       ← root (grandparent)
@@ -138,92 +137,98 @@ class TreeNode {
 //             / \\
 //            3   7        ← grandchildren of 10
 
-const root      = new TreeNode(10);   // the root
-root.left       = new TreeNode(5);    // left child of root
-root.right      = new TreeNode(15);   // right child of root
-root.left.left  = new TreeNode(3);    // left child of 5
-root.left.right = new TreeNode(7);    // right child of 5
-
-console.log(root.left.right.val); // → 7  (root → 5 → 7)`
-
-const GRAPH_CODE = `// Graph = a network. Nodes connected by edges. Like a city road map.
-// Adjacency list: each city lists which other cities it connects to.
-const roads = {
-  "Mumbai":    ["Pune", "Surat", "Nashik"],  // Mumbai connects to these
-  "Pune":      ["Mumbai", "Nashik"],          // Pune's connections
-  "Surat":     ["Mumbai", "Ahmedabad"],
-  "Nashik":    ["Mumbai", "Pune"],
-  "Ahmedabad": ["Surat"],
+let root = TreeNode {
+    val: 10,
+    left: Some(Box::new(TreeNode {
+        val: 5,
+        left:  Some(Box::new(TreeNode { val: 3, left: None, right: None })),
+        right: Some(Box::new(TreeNode { val: 7, left: None, right: None })),
+    })),
+    right: Some(Box::new(TreeNode { val: 15, left: None, right: None })),
 };
 
+// root → left(5) → right(7):
+let val = root.left.as_ref().unwrap().right.as_ref().unwrap().val;
+println!("{val}"); // → 7  (root → 5 → 7)`
+
+const GRAPH_CODE = `use std::collections::HashMap;
+
+// Graph = a network. Nodes connected by edges. Like a city road map.
+// Adjacency list: each city lists which other cities it connects to.
+let mut roads: HashMap<&str, Vec<&str>> = HashMap::new();
+roads.insert("Mumbai",    vec!["Pune", "Surat", "Nashik"]);
+roads.insert("Pune",      vec!["Mumbai", "Nashik"]);
+roads.insert("Surat",     vec!["Mumbai", "Ahmedabad"]);
+roads.insert("Nashik",    vec!["Mumbai", "Pune"]);
+roads.insert("Ahmedabad", vec!["Surat"]);
+
 // Which cities can I reach directly from Mumbai?
-console.log(roads["Mumbai"]); // → ["Pune", "Surat", "Nashik"]
+println!("{:?}", roads["Mumbai"]); // → ["Pune", "Surat", "Nashik"]
 
 // Is there a direct road from Mumbai to Ahmedabad?
-console.log(roads["Mumbai"].includes("Ahmedabad")); // → false
+println!("{}", roads["Mumbai"].contains(&"Ahmedabad")); // → false
 
 // Unlike trees: graphs can have cycles, no single "root"`
 
 const ALGO_CODE = `// Same Maggi steps — now written as code
-// INPUT: raw noodles + water
+// INPUT: cups of water
 // OUTPUT: hot, delicious Maggi
 
-function makeMaggi(cupsOfWater) {
-  // Step 1: prepare hot water
-  const pot = boilWater(cupsOfWater);  // heat until 100°C
+fn make_maggi(cups_of_water: u32) -> Pot {
+    // Step 1: prepare hot water
+    let mut pot = boil_water(cups_of_water);  // heat until 100°C
 
-  // Step 2: add the noodle block
-  addNoodles(pot);
+    // Step 2: add the noodle block
+    add_noodles(&mut pot);
 
-  // Step 3: wait patiently (this is still a step!)
-  wait(2);  // 2 minutes
+    // Step 3: wait patiently (this is still a step!)
+    wait(2);  // 2 minutes
 
-  // Step 4: the crucial flavour step
-  const masala = openPacket();
-  addTo(pot, masala);  // dump in the whole packet
+    // Step 4: the crucial flavour step
+    let masala = open_packet();
+    add_to(&mut pot, masala);  // dump in the whole packet
 
-  // Step 5: mix it all together
-  stir(pot, 30);  // 30 seconds
+    // Step 5: mix it all together
+    stir(&mut pot, 30);  // 30 seconds
 
-  // Step 6: done cooking
-  turnOffStove();
+    // Step 6: done cooking
+    turn_off_stove();
 
-  // Step 7: hand back the finished result
-  return pot;  // ← this is the OUTPUT
+    pot  // ← this is the OUTPUT (Rust returns the last expression)
 }
 
 // KEY INSIGHT: input goes in → steps happen → output comes out
 // That's ALL an algorithm is. It just has fancier steps.`
 
 const O1_CODE = `// O(1) — Constant time. Always 1 step, no matter the input size.
-const students = ["Alice", "Bob", "Charlie", "Dave", "Eve"];
+let students = ["Alice", "Bob", "Charlie", "Dave", "Eve"];
 
 // Access by index — instant, always exactly 1 operation:
-const third = students[2];  // → "Charlie"
+let third = students[2];  // → "Charlie"
 
 // Doesn't matter if there are 5 students or 5 million:
-function getFirst(arr) {
-  return arr[0];  // always exactly 1 step
+fn get_first(arr: &[i32]) -> i32 {
+    arr[0]  // always exactly 1 step
 }
 
-// getFirst([1])                  → 1 step  ⚡
-// getFirst([1, 2, 3, 4, 5])     → 1 step  ⚡
-// getFirst([...1 million items]) → 1 step  ⚡`
+// get_first(&[1])                    → 1 step  ⚡
+// get_first(&[1, 2, 3, 4, 5])       → 1 step  ⚡
+// get_first(&[...1 million items])   → 1 step  ⚡`
 
 const OLOGN_CODE = `// O(log n) — each step HALVES the remaining work.
 // Requires a SORTED array. Think: guess a number by halving.
-function binarySearch(sortedArr, target) {
-  let left  = 0;                        // left edge of search zone
-  let right = sortedArr.length - 1;     // right edge of search zone
+fn binary_search(arr: &[i32], target: i32) -> i32 {
+    let mut left  = 0i32;
+    let mut right = arr.len() as i32 - 1;
 
-  while (left <= right) {
-    const mid = Math.floor((left + right) / 2);  // peek at the middle
+    while left <= right {
+        let mid = left + (right - left) / 2;  // peek at the middle
 
-    if (sortedArr[mid] === target) return mid;   // found it! done.
-    if (sortedArr[mid] < target)  left  = mid + 1; // target is in right half
-    else                          right = mid - 1; // target is in left half
-  }
-  return -1;  // not found
+        if arr[mid as usize] == target { return mid; }      // found it!
+        if arr[mid as usize] < target  { left  = mid + 1; } // look right
+        else                           { right = mid - 1; } // look left
+    }
+    -1  // not found
 }
 
 // Search for 7 in [1,2,3,4,5,6,7,8,9,10]:
@@ -234,14 +239,14 @@ function binarySearch(sortedArr, target) {
 // 1,000 items → ~10 checks. 1 million → ~20 checks.`
 
 const ON_CODE = `// O(n) — Linear time. Work grows directly with input size.
-function findFriend(crowd, friendName) {
-  // Worst case: friend is last (or not there), so check everyone
-  for (let i = 0; i < crowd.length; i++) {  // loop through each person
-    if (crowd[i] === friendName) {           // is this them?
-      return i;                              // found! return position
+fn find_friend(crowd: &[&str], friend_name: &str) -> i32 {
+    // Worst case: friend is last (or not there), so check everyone
+    for (i, &person) in crowd.iter().enumerate() {
+        if person == friend_name {   // is this them?
+            return i as i32;         // found! return position
+        }
     }
-  }
-  return -1;  // friend wasn't in the crowd
+    -1  // friend wasn't in the crowd
 }
 
 // 10 people  → up to  10 checks
@@ -253,10 +258,10 @@ function findFriend(crowd, friendName) {
 const ONLOGN_CODE = `// O(n log n) — a bit slower than O(n), WAY better than O(n²).
 // Most good sorting algorithms land here.
 
-const scores = [85, 42, 99, 17, 63, 28];
+let mut scores = vec![85, 42, 99, 17, 63, 28];
 
-// JavaScript's built-in sort is O(n log n):
-scores.sort((a, b) => a - b);
+// Rust's built-in sort is O(n log n):
+scores.sort();
 // → [17, 28, 42, 63, 85, 99]
 
 // WHY n log n? (Merge sort example)
@@ -268,15 +273,15 @@ scores.sort((a, b) => a - b);
 // n = 10000 → ~130,000 steps (still fine)`
 
 const ON2_CODE = `// O(n²) — Quadratic time. Nested loop = danger sign!
-function findAllPairs(arr) {
-  const pairs = [];
+fn find_all_pairs(arr: &[i32]) -> Vec<[i32; 2]> {
+    let mut pairs: Vec<[i32; 2]> = Vec::new();
 
-  for (let i = 0; i < arr.length; i++) {       // outer: each element
-    for (let j = i + 1; j < arr.length; j++) { // inner: compare with every other
-      pairs.push([arr[i], arr[j]]);             // record this pair
+    for i in 0..arr.len() {              // outer: each element
+        for j in (i + 1)..arr.len() {   // inner: compare with every other
+            pairs.push([arr[i], arr[j]]); // record this pair
+        }
     }
-  }
-  return pairs;
+    pairs
 }
 
 // n = 10    →    45 pairs   (fine)
@@ -287,29 +292,29 @@ function findAllPairs(arr) {
 // PATTERN: if you see a loop INSIDE a loop → probably O(n²)`
 
 const SPACE_O1_CODE = `// O(1) space — same memory usage no matter the input size
-function sumArray(arr) {
-  let total = 0;  // just ONE extra variable, always
+fn sum_array(arr: &[i32]) -> i32 {
+    let mut total = 0i32;  // just ONE extra variable, always
 
-  for (let i = 0; i < arr.length; i++) {
-    total += arr[i];  // reuse 'total' — don't create new variables
-  }
+    for &val in arr {
+        total += val;  // reuse 'total' — don't create new variables
+    }
 
-  return total;
+    total
 }
 
-// arr has 5 items    → extra memory: 'total' + 'i' = 2 slots
-// arr has 5000 items → extra memory: 'total' + 'i' = still 2 slots
+// arr has 5 items    → extra memory: 'total' = 1 slot
+// arr has 5000 items → extra memory: 'total' = still 1 slot
 // Your desk stays the same size regardless of how much data you process`
 
 const SPACE_ON_CODE = `// O(n) space — memory GROWS with input size
-function doubleAll(arr) {
-  const result = [];  // new array — grows as arr grows!
+fn double_all(arr: &[i32]) -> Vec<i32> {
+    let mut result: Vec<i32> = Vec::new();  // grows as arr grows!
 
-  for (let i = 0; i < arr.length; i++) {
-    result.push(arr[i] * 2);  // add one new slot per input item
-  }
+    for &val in arr {
+        result.push(val * 2);  // add one new slot per input item
+    }
 
-  return result;
+    result
 }
 
 // arr = [1, 2, 3]     → result = [2, 4, 6]    → 3 extra slots
@@ -318,14 +323,14 @@ function doubleAll(arr) {
 // Memory needed = n (scales with the input). That's O(n) space.`
 
 const RECURSION_CORRECT = `// Factorial: 5! = 5 × 4 × 3 × 2 × 1 = 120
-function factorial(n) {
-  // ── BASE CASE: the stop sign ────────────────────────────
-  // Without this, the function calls itself forever → CRASH
-  if (n <= 1) return 1;  // we know: 0! = 1 and 1! = 1
+fn factorial(n: u64) -> u64 {
+    // ── BASE CASE: the stop sign ────────────────────────────
+    // Without this, the function calls itself forever → CRASH
+    if n <= 1 { return 1; }  // we know: 0! = 1 and 1! = 1
 
-  // ── RECURSIVE CASE: call yourself with a smaller problem ─
-  return n * factorial(n - 1);
-  //         ↑ same function, but n shrinks by 1 each time
+    // ── RECURSIVE CASE: call yourself with a smaller problem ─
+    n * factorial(n - 1)
+    //  ↑ same function, but n shrinks by 1 each time
 }
 
 // Tracing factorial(4):
@@ -338,25 +343,25 @@ function factorial(n) {
 //    factorial(3)       →     3 × 2      = 6
 //  factorial(4)         → 4 × 6          = 24  ✅
 
-console.log(factorial(4));  // → 24
-console.log(factorial(6));  // → 720`
+println!("{}", factorial(4));  // → 24
+println!("{}", factorial(6));  // → 720`
 
 const RECURSION_BROKEN = `// ❌ BROKEN — no base case = infinite recursion = crash!
-function brokenFactorial(n) {
-  return n * brokenFactorial(n - 1);  // calls itself... forever
+fn broken_factorial(n: u64) -> u64 {
+    n * broken_factorial(n - 1)  // calls itself... forever
 }
 
-// What happens calling brokenFactorial(3):
+// What happens calling broken_factorial(3):
 //
-//   brokenFactorial(3)
-//     brokenFactorial(2)
-//       brokenFactorial(1)
-//         brokenFactorial(0)
-//           brokenFactorial(-1)
-//             brokenFactorial(-2)
+//   broken_factorial(3)
+//     broken_factorial(2)
+//       broken_factorial(1)
+//         broken_factorial(0)
+//           broken_factorial will underflow (u64 wraps to u64::MAX)
+//             broken_factorial(u64::MAX)
 //               ... goes on forever ...
 //
-//  💥 "Maximum call stack size exceeded" — the program CRASHES
+//  💥 Stack overflow — the program CRASHES
 //
 // The call stack (pile of function calls) grows and grows
 // until your computer runs out of room. Then boom.`
@@ -364,15 +369,15 @@ function brokenFactorial(n) {
 const FIVSTEP_BRUTE = `// STEP 2: Brute force — check every single pair
 // Problem: find two numbers in [2, 7, 11, 15] that add up to 9
 
-function twoSumBrute(arr, target) {
-  for (let i = 0; i < arr.length; i++) {       // pick 1st number
-    for (let j = i + 1; j < arr.length; j++) { // pick 2nd number
-      if (arr[i] + arr[j] === target) {        // do they sum to target?
-        return [i, j];                         // yes! return indexes
-      }
+fn two_sum_brute(arr: &[i32], target: i32) -> Vec<usize> {
+    for i in 0..arr.len() {              // pick 1st number
+        for j in (i + 1)..arr.len() {   // pick 2nd number
+            if arr[i] + arr[j] == target {   // do they sum to target?
+                return vec![i, j];           // yes! return indexes
+            }
+        }
     }
-  }
-  return [];  // no pair found
+    vec![]  // no pair found
 }
 
 // STEP 3: What's slow?
@@ -382,24 +387,26 @@ function twoSumBrute(arr, target) {
 // ... lots of repeated scanning. We can do better.`
 
 const FIVSTEP_OPT = `// STEP 4: Optimize — use a HashMap to remember what we've seen
-function twoSumOptimized(arr, target) {
-  const seen = new Map();  // value → its index in arr
+use std::collections::HashMap;
 
-  for (let i = 0; i < arr.length; i++) {
-    const need = target - arr[i];  // what number do we NEED?
+fn two_sum_optimized(arr: &[i32], target: i32) -> Vec<usize> {
+    let mut seen: HashMap<i32, usize> = HashMap::new();  // value → index
 
-    if (seen.has(need)) {          // have we seen that number before?
-      return [seen.get(need), i];  // yes! return both indexes
+    for (i, &num) in arr.iter().enumerate() {
+        let need = target - num;  // what number do we NEED?
+
+        if let Some(&j) = seen.get(&need) {  // have we seen that number?
+            return vec![j, i];               // yes! return both indexes
+        }
+
+        seen.insert(num, i);  // no? remember this number for later
     }
-
-    seen.set(arr[i], i);           // no? remember this number for later
-  }
-  return [];  // no solution
+    vec![]  // no solution
 }
 
 // Walk-through with [2, 7, 11, 15], target = 9:
-// i=0: arr[0]=2, need=7.  seen={}    → remember {2→0}
-// i=1: arr[1]=7, need=2.  Is 2 in seen? YES! → return [0, 1] ✅
+// i=0: num=2, need=7.  seen={}    → remember {2→0}
+// i=1: num=7, need=2.  Is 2 in seen? YES! → return [0, 1] ✅
 //
 // O(n) time  — one pass
 // O(n) space — the map holds at most n entries`
@@ -749,7 +756,7 @@ export default function FoundationsContent() {
           input goes in, steps happen in order, output comes out:
         </p>
 
-        <CodeBlock code={ALGO_CODE} lang="javascript" />
+        <CodeBlock code={ALGO_CODE} lang="rust" />
 
         <Callout type="tip">
           Every single algorithm you&apos;ll ever write has the same shape:{' '}
@@ -792,7 +799,7 @@ export default function FoundationsContent() {
             Your friend texted you: <em>&quot;I&apos;m at seat 12.&quot;</em> You walk directly there.
             Doesn&apos;t matter if the venue has 100 seats or 100,000 — <strong>one step, done</strong>.
           </p>
-          <CodeBlock code={O1_CODE} lang="javascript" />
+          <CodeBlock code={O1_CODE} lang="rust" />
         </div>
 
         {/* O(log n) */}
@@ -806,7 +813,7 @@ export default function FoundationsContent() {
             know it&apos;s 1-49. You say 25. Too low — now 26-49. Each guess <strong>cuts the
             remaining options in half</strong>. You&apos;ll find it in ~7 guesses max. That&apos;s log₂(100) ≈ 7.
           </p>
-          <CodeBlock code={OLOGN_CODE} lang="javascript" />
+          <CodeBlock code={OLOGN_CODE} lang="rust" />
         </div>
 
         {/* O(n) */}
@@ -820,7 +827,7 @@ export default function FoundationsContent() {
             single person. 500 people = up to 500 checks. <strong>Work grows directly with the
             crowd size</strong> — double the people, double the work.
           </p>
-          <CodeBlock code={ON_CODE} lang="javascript" />
+          <CodeBlock code={ON_CODE} lang="rust" />
         </div>
 
         {/* O(n log n) */}
@@ -835,7 +842,7 @@ export default function FoundationsContent() {
             slower than O(n), but <strong>way better than O(n²)</strong>. This is where most
             good sorting algorithms live.
           </p>
-          <CodeBlock code={ONLOGN_CODE} lang="javascript" />
+          <CodeBlock code={ONLOGN_CODE} lang="rust" />
         </div>
 
         {/* O(n²) */}
@@ -849,7 +856,7 @@ export default function FoundationsContent() {
             100 people = 10,000 comparisons. 1,000 people = 1,000,000 comparisons.{' '}
             <strong>Explodes fast.</strong> The tell-tale sign: a loop inside a loop.
           </p>
-          <CodeBlock code={ON2_CODE} lang="javascript" />
+          <CodeBlock code={ON2_CODE} lang="rust" />
         </div>
 
         <p className="found-p" style={{ marginTop: 8 }}>
@@ -891,8 +898,8 @@ export default function FoundationsContent() {
           of memory and the other allocates more as the input grows:
         </p>
 
-        <CodeBlock code={SPACE_O1_CODE} lang="javascript" />
-        <CodeBlock code={SPACE_ON_CODE} lang="javascript" />
+        <CodeBlock code={SPACE_O1_CODE} lang="rust" />
+        <CodeBlock code={SPACE_ON_CODE} lang="rust" />
 
         <Callout type="tip">
           <strong>There&apos;s often a trade-off between time and space.</strong> Using more memory
@@ -961,7 +968,7 @@ export default function FoundationsContent() {
           </div>
         </div>
 
-        <CodeBlock code={RECURSION_CORRECT} lang="javascript" />
+        <CodeBlock code={RECURSION_CORRECT} lang="rust" />
 
         <p className="found-p">
           That comment-trace in the code above is how you should mentally walk through any
@@ -976,7 +983,7 @@ export default function FoundationsContent() {
           recursion mistake:
         </p>
 
-        <CodeBlock code={RECURSION_BROKEN} lang="javascript" />
+        <CodeBlock code={RECURSION_BROKEN} lang="rust" />
 
         <Callout type="warning">
           <strong>The #1 recursion mistake: forgetting the base case.</strong> Your code
@@ -1037,7 +1044,7 @@ export default function FoundationsContent() {
                 solve this? Usually it&apos;s &quot;try every combination.&quot; This solution is always correct —
                 it&apos;s just slow. That&apos;s okay. Write it. Get it working. <em>Then</em> optimize.
               </div>
-              <CodeBlock code={FIVSTEP_BRUTE} lang="javascript" />
+              <CodeBlock code={FIVSTEP_BRUTE} lang="rust" />
             </div>
           </div>
 
@@ -1068,7 +1075,7 @@ export default function FoundationsContent() {
                 For this problem: <em>use a HashMap</em> to remember what we&apos;ve seen — trading
                 O(n) space for O(n) time instead of O(n²) time.
               </div>
-              <CodeBlock code={FIVSTEP_OPT} lang="javascript" />
+              <CodeBlock code={FIVSTEP_OPT} lang="rust" />
               <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Result:</span>
                 <BigOBadge complexity="O(n)" label="time" />
